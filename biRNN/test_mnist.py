@@ -3,6 +3,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
+from live_plot import LiveTrainingPlot
 from model import BidirectionalRNN, get_device
 
 
@@ -19,13 +20,14 @@ def to_sequence(images: torch.Tensor) -> torch.Tensor:
     return images.squeeze(1)
 
 
-def train(model, loader, device, epochs: int, lr: float = 1e-3):
+def train(model, train_loader, test_loader, device, epochs: int, lr: float = 1e-3, live_plot=None) -> float:
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = nn.CrossEntropyLoss()
-    model.train()
+    accuracy = 0.0
     for epoch in range(epochs):
+        model.train()
         total_loss = 0.0
-        for images, labels in loader:
+        for images, labels in train_loader:
             images = to_sequence(images).to(device)
             labels = labels.to(device)
 
@@ -35,7 +37,12 @@ def train(model, loader, device, epochs: int, lr: float = 1e-3):
             loss.backward()
             optimizer.step()
             total_loss += loss.item()
-        print(f"epoch {epoch + 1}/{epochs} loss {total_loss / len(loader):.4f}")
+        avg_loss = total_loss / len(train_loader)
+        accuracy = evaluate(model, test_loader, device)
+        print(f"epoch {epoch + 1}/{epochs} loss {avg_loss:.4f} accuracy {accuracy:.4f}")
+        if live_plot is not None:
+            live_plot.update(epoch + 1, avg_loss, accuracy)
+    return accuracy
 
 
 @torch.no_grad()
@@ -60,8 +67,8 @@ def main():
     train_loader, test_loader = load_data()
     model = BidirectionalRNN(input_size=28, hidden_size=64, output_size=10, output_mode="last").to(device)
 
-    train(model, train_loader, device, epochs=5)
-    accuracy = evaluate(model, test_loader, device)
+    live_plot = LiveTrainingPlot(title="biRNN/test_mnist.py")
+    accuracy = train(model, train_loader, test_loader, device, epochs=5, live_plot=live_plot)
     print(f"test accuracy: {accuracy:.4f}")
     assert accuracy > 0.90, f"expected >90% accuracy, got {accuracy:.4f}"
 
