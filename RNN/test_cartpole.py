@@ -5,6 +5,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 
 from heuristic_policy import heuristic_action
+from live_plot import LiveTrainingPlot
 from model import SimpleRNN, get_device
 
 
@@ -52,13 +53,14 @@ def collate_pad(batch):
     return padded_states, padded_actions, mask
 
 
-def train(model, loader, device, epochs: int, lr: float = 1e-3):
+def train(model, train_loader, test_loader, device, epochs: int, lr: float = 1e-3, live_plot=None) -> float:
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = nn.CrossEntropyLoss(reduction="none")
-    model.train()
+    accuracy = 0.0
     for epoch in range(epochs):
+        model.train()
         total_loss = 0.0
-        for states, actions, mask in loader:
+        for states, actions, mask in train_loader:
             states, actions, mask = states.to(device), actions.to(device), mask.to(device)
             optimizer.zero_grad()
             logits = model(states)  # (batch, seq_len, 2)
@@ -67,7 +69,12 @@ def train(model, loader, device, epochs: int, lr: float = 1e-3):
             loss.backward()
             optimizer.step()
             total_loss += loss.item()
-        print(f"epoch {epoch + 1}/{epochs} loss {total_loss / len(loader):.4f}")
+        avg_loss = total_loss / len(train_loader)
+        accuracy = evaluate(model, test_loader, device)
+        print(f"epoch {epoch + 1}/{epochs} loss {avg_loss:.4f} accuracy {accuracy:.4f}")
+        if live_plot is not None:
+            live_plot.update(epoch + 1, avg_loss, accuracy)
+    return accuracy
 
 
 @torch.no_grad()
@@ -100,8 +107,8 @@ def main():
 
     model = SimpleRNN(input_size=4, hidden_size=32, output_size=2, output_mode="all").to(device)
 
-    train(model, train_loader, device, epochs=10)
-    accuracy = evaluate(model, test_loader, device)
+    live_plot = LiveTrainingPlot(title="RNN/test_cartpole.py")
+    accuracy = train(model, train_loader, test_loader, device, epochs=10, live_plot=live_plot)
     print(f"per-timestep action accuracy: {accuracy:.4f}")
     assert accuracy > 0.90, f"expected >90% action accuracy, got {accuracy:.4f}"
 
