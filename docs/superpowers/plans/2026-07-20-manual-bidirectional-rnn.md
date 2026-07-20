@@ -359,7 +359,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "RNN"))
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "RNN"))
 from heuristic_policy import heuristic_action
 
 from model import BidirectionalRNN, get_device
