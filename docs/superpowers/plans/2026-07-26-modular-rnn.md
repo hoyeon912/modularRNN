@@ -585,6 +585,8 @@ Run: `source /Users/hoyeon/Codes/modularRNN/.venv/bin/activate && cd /Users/hoye
 
 Expected: prints per-epoch loss/accuracy for 10 epochs, then `per-timestep action accuracy: 0.9xxx`, no `AssertionError`. This will run noticeably slower than `RNN/test_cartpole.py` (Python-level per-timestep loop, same as `biRNN`) — allow several minutes; if it hasn't finished in 10 minutes, stop and report rather than assuming a hang. If accuracy doesn't clear 90%, raise `hidden_size` to the next multiple of 3 (e.g. 63) and retry rather than lowering the threshold.
 
+**Actual outcome (deviation, confirmed with user):** `hidden_size=33` (10 epochs) reached only 75.4%; `hidden_size=63` reached 84.5%; `hidden_size=96` reached 87.2% — all three still improving at epoch 10, not plateaued. This pointed at an undertrained model rather than an undersized one, so instead of continuing to raise `hidden_size`, the shipped script keeps `hidden_size=63` and raises `epochs` to 25, reaching 93.60% accuracy. This is a deviation from this plan's "same hyperparameters as biRNN" comparability constraint, made with explicit user sign-off after showing the trend across three `hidden_size` values.
+
 - [ ] **Step 3: Commit**
 
 ```bash
