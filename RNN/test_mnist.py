@@ -1,3 +1,5 @@
+import json
+
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -21,28 +23,50 @@ def to_sequence(images: torch.Tensor) -> torch.Tensor:
     return images.squeeze(1)
 
 
-def train(model, train_loader, test_loader, device, epochs: int, lr: float = 1e-3, live_plot=None) -> float:
+def save_results(model, history, results_path: str, model_path: str) -> None:
+    with open(results_path, "w") as f:
+        json.dump(history, f, indent=2)
+    torch.save(model.state_dict(), model_path)
+    print(f"saved {len(history)} epoch(s) of history to {results_path}, model weights to {model_path}")
+
+
+def train(
+    model,
+    train_loader,
+    test_loader,
+    device,
+    epochs: int,
+    lr: float = 1e-3,
+    live_plot=None,
+    results_path: str = "mnist_results.json",
+    model_path: str = "mnist_model.pt",
+) -> float:
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = nn.CrossEntropyLoss()
     accuracy = 0.0
-    for epoch in range(epochs):
-        model.train()
-        total_loss = 0.0
-        for images, labels in train_loader:
-            images = to_sequence(images).to(device)
-            labels = labels.to(device)
+    history = []
+    try:
+        for epoch in range(epochs):
+            model.train()
+            total_loss = 0.0
+            for images, labels in train_loader:
+                images = to_sequence(images).to(device)
+                labels = labels.to(device)
 
-            optimizer.zero_grad()
-            logits = model(images)
-            loss = criterion(logits, labels)
-            loss.backward()
-            optimizer.step()
-            total_loss += loss.item()
-        avg_loss = total_loss / len(train_loader)
-        accuracy = evaluate(model, test_loader, device)
-        print(f"epoch {epoch + 1}/{epochs} loss {avg_loss:.4f} accuracy {accuracy:.4f}")
-        if live_plot is not None:
-            live_plot.update(epoch + 1, avg_loss, accuracy)
+                optimizer.zero_grad()
+                logits = model(images)
+                loss = criterion(logits, labels)
+                loss.backward()
+                optimizer.step()
+                total_loss += loss.item()
+            avg_loss = total_loss / len(train_loader)
+            accuracy = evaluate(model, test_loader, device)
+            print(f"epoch {epoch + 1}/{epochs} loss {avg_loss:.4f} accuracy {accuracy:.4f}")
+            history.append({"epoch": epoch + 1, "loss": avg_loss, "accuracy": accuracy})
+            if live_plot is not None:
+                live_plot.update(epoch + 1, avg_loss, accuracy)
+    finally:
+        save_results(model, history, results_path, model_path)
     return accuracy
 
 

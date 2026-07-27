@@ -1,3 +1,5 @@
+import json
+
 import gymnasium as gym
 import torch
 
@@ -86,24 +88,44 @@ def reinforce_update(model, optimizer, episode_batch, gamma: float = 0.99, entro
     return policy_loss.item()
 
 
-def train(model, device, num_updates: int, episodes_per_update: int = 8, live_plot=None) -> float:
+def save_results(model, history, results_path: str, model_path: str) -> None:
+    with open(results_path, "w") as f:
+        json.dump(history, f, indent=2)
+    torch.save(model.state_dict(), model_path)
+    print(f"saved {len(history)} update(s) of history to {results_path}, model weights to {model_path}")
+
+
+def train(
+    model,
+    device,
+    num_updates: int,
+    episodes_per_update: int = 8,
+    live_plot=None,
+    results_path: str = "cartpole_results.json",
+    model_path: str = "cartpole_model.pt",
+):
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     env = gym.make("CartPole-v1")
     avg_reward = 0.0
-    for update in range(num_updates):
-        batch = [collect_episode_stochastic(model, env, device) for _ in range(episodes_per_update)]
-        loss = reinforce_update(model, optimizer, batch)
-        avg_reward = evaluate_reward(model, device)
-        print(f"update {update + 1}/{num_updates} loss {loss:.4f} reward {avg_reward:.1f}")
-        if live_plot is not None:
-            live_plot.update(update + 1, loss, avg_reward)
-        if device.type == "mps" and (update + 1) % 10 == 0:
-            torch.mps.empty_cache()
-        if avg_reward >= 500:
-            print(f"reached max reward (500) at update {update + 1}, stopping early")
-            break
-    env.close()
-    return avg_reward
+    history = []
+    try:
+        for update in range(num_updates):
+            batch = [collect_episode_stochastic(model, env, device) for _ in range(episodes_per_update)]
+            loss = reinforce_update(model, optimizer, batch)
+            avg_reward = evaluate_reward(model, device)
+            print(f"update {update + 1}/{num_updates} loss {loss:.4f} reward {avg_reward:.1f}")
+            history.append({"update": update + 1, "loss": loss, "reward": avg_reward})
+            if live_plot is not None:
+                live_plot.update(update + 1, loss, avg_reward)
+            if device.type == "mps" and (update + 1) % 10 == 0:
+                torch.mps.empty_cache()
+            if avg_reward >= 500:
+                print(f"reached max reward (500) at update {update + 1}, stopping early")
+                break
+    finally:
+        env.close()
+        save_results(model, history, results_path, model_path)
+    return avg_reward, history
 
 
 def main():
@@ -113,7 +135,7 @@ def main():
     model = SimpleRNN(input_size=4, hidden_size=32, output_size=2, output_mode="all").to(device)
 
     live_plot = LiveTrainingPlot(title="RNN/test_cartpole.py", metrics=("loss", "reward"))
-    avg_reward = train(model, device, num_updates=100, live_plot=live_plot)
+    avg_reward, _ = train(model, device, num_updates=5, live_plot=live_plot)
     print(f"average reward: {avg_reward:.1f}")
     assert avg_reward > 150, f"expected average reward > 150, got {avg_reward:.1f}"
 
