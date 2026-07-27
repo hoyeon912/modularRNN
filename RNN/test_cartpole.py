@@ -97,6 +97,8 @@ def train(model, device, num_updates: int, episodes_per_update: int = 8, live_pl
         print(f"update {update + 1}/{num_updates} loss {loss:.4f} reward {avg_reward:.1f}")
         if live_plot is not None:
             live_plot.update(update + 1, loss, avg_reward)
+        if device.type == "mps":
+            torch.mps.empty_cache()
         if avg_reward >= 500:
             print(f"reached max reward (500) at update {update + 1}, stopping early")
             break
