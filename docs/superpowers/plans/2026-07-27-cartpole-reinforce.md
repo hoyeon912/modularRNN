@@ -27,9 +27,9 @@ new dependencies.
 - `live_plot.py`, `model.py`, `test_model.py`, `test_mnist.py`, `test_live_plot.py` are
   **not touched** by this plan in any folder — `LiveTrainingPlot` already supports an
   arbitrary `metrics` tuple, so `metrics=("loss", "reward")` requires no changes there.
-- Hyperparameters, identical across all three folders (only `hidden_size` differs, as
-  before): `gamma=0.99`, `episodes_per_update=8`, `num_updates=100`, `max_steps=500`,
-  `entropy_coef=0.01`, `lr=1e-3` (Adam).
+- Hyperparameters, identical across all three folders except `hidden_size` (as before) and
+  `episodes_per_update` (see MPS fix below — `RNN=8`, `biRNN=4`, `modRNN=4`): `gamma=0.99`,
+  `num_updates=100`, `max_steps=500`, `entropy_coef=0.01`, `lr=1e-3` (Adam).
 - Success bar: `assert avg_reward > 150` (out of a 500 max) after the fixed 100-update
   budget — deliberately modest relative to CartPole-v1's official 475+ "solved" bar, given
   the compute cost noted below and vanilla REINFORCE's high sample complexity.
@@ -41,22 +41,26 @@ new dependencies.
   far the most expensive regime for the O(T²) causal-rollout cost — RNN's actual first run
   hit reward 500 at update 38/100 and, without this check, would have spent the other 62
   updates at maximum per-episode cost for zero additional benefit.
-- **MPS memory management (added mid-execution, recurring crash on `biRNN`):** `train()`
-  calls `torch.mps.empty_cache()`, guarded by `if device.type == "mps"`.
-  `biRNN`'s hand-rolled per-timestep tensor allocations (inside `collect_episode_stochastic`'s
-  growing-prefix loop) accumulate in PyTorch's MPS memory pool faster than it's reclaimed,
-  and crashed with `Insufficient Memory (kIOGPUCommandBufferCallbackErrorOutOfMemory)` at
-  three different update numbers across three attempts (26, then 38 with no fix, then 32
-  even with cache clearing every 10th update) — confirming the crash tracks *peak* memory
-  during a single update's backward pass (which grows with episode length as the policy
-  improves), not simple cross-update accumulation that periodic clearing can outrun.
-  **Only clearing after every single update reliably avoids the crash**, at a large,
-  accepted speed cost (each update's freshly-reallocated small tensors are far slower than
-  the allocator's normal reuse path). Per user decision: `RNN/` keeps clearing every 10th
-  update (`(update + 1) % 10 == 0`) since its one run completed without ever crashing;
-  `biRNN/` and `modRNN/` clear after every update (no modulo condition — just
-  `if device.type == "mps": torch.mps.empty_cache()`), trading training speed for
-  guaranteed completion, since both hit or are expected to hit the same crash pattern.
+- **MPS out-of-memory crash (added mid-execution, recurring on `biRNN`):** `biRNN` crashed
+  with `Insufficient Memory (kIOGPUCommandBufferCallbackErrorOutOfMemory)` across four
+  consecutive attempts, at update numbers 26, 38, 32, and 37 — always once episodes started
+  regularly exceeding ~150-300 steps. This tracks *peak* memory during a single update's
+  batched backward pass (which grows with episode length as the policy improves), not
+  cross-update accumulation. `torch.mps.empty_cache()` between updates was tried at three
+  frequencies (never, every 10th, every single update) and **none reliably prevented the
+  crash** — clearing between updates cannot reduce the peak a single update's own backward
+  pass needs while it's running, and "every single update" also made training far slower
+  for no proven benefit (confirmed only by chance timing in one earlier run, not by
+  actually surviving to completion). `train()` keeps the every-10th-update
+  `torch.mps.empty_cache()` call as a harmless minor hygiene measure (RNN's original,
+  never-crashed setting) but it is not the actual fix.
+
+  **The actual fix: reduce `episodes_per_update` from 8 to 4 for `biRNN` and `modRNN`**
+  (RNN keeps 8 — its one run completed without ever crashing). This directly halves how
+  many episodes' log_probs/entropies are held in one `reinforce_update` batch and
+  backpropped together in a single call, directly shrinking the peak memory that call
+  needs — unlike cache-clearing, which only affects memory *between* update calls, not
+  the peak *during* one.
 - **If 150 isn't cleared in 100 updates:** report the observed reward trend and ask the
   user before changing the budget or any hyperparameter — do not silently raise
   `num_updates`/`episodes_per_update` repeatedly or lower the threshold. This mirrors the
@@ -268,11 +272,14 @@ Identical to Task 1's Step 1, except:
   `import gymnasium as gym`, `import torch`, `from live_plot import LiveTrainingPlot`,
   `from model import BidirectionalRNN, get_device`.
 - In `main()`, use `model = BidirectionalRNN(input_size=4, hidden_size=32, output_size=2, output_mode="all").to(device)`
-  and `live_plot = LiveTrainingPlot(title="biRNN/test_cartpole.py", metrics=("loss", "reward"))`.
-- In `train()`, the MPS cache-clearing condition is `if device.type == "mps":` with
-  **no modulo/frequency check** — clear after every update, not every 10th (per the Global
-  Constraints "MPS memory management" note: `biRNN` needs this to avoid a recurring
-  out-of-memory crash that periodic clearing didn't prevent).
+  and `live_plot = LiveTrainingPlot(title="biRNN/test_cartpole.py", metrics=("loss", "reward"))`,
+  and call `train(model, device, num_updates=100, episodes_per_update=4, live_plot=live_plot)`
+  (per the Global Constraints "MPS out-of-memory crash" note: `episodes_per_update=4`, not
+  `8`, is the actual fix for `biRNN`'s recurring crash — cache-clearing frequency alone
+  did not prevent it across four attempts).
+- `train()`'s MPS cache-clearing keeps the every-10th-update condition
+  (`if device.type == "mps" and (update + 1) % 10 == 0:`), same as Task 1 — harmless minor
+  hygiene, not the fix.
 - All other functions (`rollout_episode`, `evaluate_reward`, `collect_episode_stochastic`,
   `compute_returns`, `reinforce_update`) are byte-identical to Task 1's.
 
@@ -312,9 +319,11 @@ Identical to Task 2's Step 1, except:
 - In `main()`, use the file's current model construction line exactly as-is:
   `model = ModularBidirectionalRNN(input_size=4, hidden_size=63, output_size=2, output_mode="all").to(device)`
   (keep `hidden_size=63` — this was tuned in an earlier, separate plan; do not change it)
-  and `live_plot = LiveTrainingPlot(title="modRNN/test_cartpole.py", metrics=("loss", "reward"))`.
-- Same as `biRNN` (Task 2): `train()`'s MPS cache-clearing condition is
-  `if device.type == "mps":` with no modulo/frequency check — clear after every update.
+  and `live_plot = LiveTrainingPlot(title="modRNN/test_cartpole.py", metrics=("loss", "reward"))`,
+  and call `train(model, device, num_updates=100, episodes_per_update=4, live_plot=live_plot)`
+  — same `episodes_per_update=4` fix as `biRNN` (Task 2), applied preemptively since
+  `modRNN`'s hand-rolled cells share the same memory-scaling characteristics.
+- `train()`'s MPS cache-clearing keeps the every-10th-update condition, same as Task 1/2.
 - All other functions are byte-identical to Task 1/2's.
 
 - [ ] **Step 2: Run the full script**
