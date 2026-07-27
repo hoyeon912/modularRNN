@@ -41,6 +41,16 @@ new dependencies.
   far the most expensive regime for the O(T²) causal-rollout cost — RNN's actual first run
   hit reward 500 at update 38/100 and, without this check, would have spent the other 62
   updates at maximum per-episode cost for zero additional benefit.
+- **MPS memory management (added mid-execution, recurring crash on `biRNN`):** `train()`
+  calls `torch.mps.empty_cache()` after each update, guarded by `if device.type == "mps"`.
+  `biRNN`'s hand-rolled per-timestep tensor allocations (inside `collect_episode_stochastic`'s
+  growing-prefix loop) accumulate in PyTorch's MPS memory pool faster than it's reclaimed,
+  and two consecutive runs crashed with
+  `Insufficient Memory (kIOGPUCommandBufferCallbackErrorOutOfMemory)` at different update
+  numbers (26 and 38) — confirming a recurring resource-exhaustion pattern, not a one-off
+  fluke, and not something retrying alone fixes. Applied to all three folders' `train()` for
+  consistency, since `RNN/`'s run also showed climbing process memory (~3GB) even though it
+  didn't cross the crash threshold in its one run.
 - **If 150 isn't cleared in 100 updates:** report the observed reward trend and ask the
   user before changing the budget or any hyperparameter — do not silently raise
   `num_updates`/`episodes_per_update` repeatedly or lower the threshold. This mirrors the
@@ -170,6 +180,8 @@ def train(model, device, num_updates: int, episodes_per_update: int = 8, live_pl
         print(f"update {update + 1}/{num_updates} loss {loss:.4f} reward {avg_reward:.1f}")
         if live_plot is not None:
             live_plot.update(update + 1, loss, avg_reward)
+        if device.type == "mps":
+            torch.mps.empty_cache()
         if avg_reward >= 500:
             print(f"reached max reward (500) at update {update + 1}, stopping early")
             break
