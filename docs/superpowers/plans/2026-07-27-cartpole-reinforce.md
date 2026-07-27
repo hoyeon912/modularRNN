@@ -320,9 +320,18 @@ Identical to Task 2's Step 1, except:
   `model = ModularBidirectionalRNN(input_size=4, hidden_size=63, output_size=2, output_mode="all").to(device)`
   (keep `hidden_size=63` — this was tuned in an earlier, separate plan; do not change it)
   and `live_plot = LiveTrainingPlot(title="modRNN/test_cartpole.py", metrics=("loss", "reward"))`,
-  and call `train(model, device, num_updates=100, episodes_per_update=4, live_plot=live_plot)`
+  and call `train(model, device, num_updates=300, episodes_per_update=4, live_plot=live_plot)`
   — same `episodes_per_update=4` fix as `biRNN` (Task 2), applied preemptively since
   `modRNN`'s hand-rolled cells share the same memory-scaling characteristics.
+  **`num_updates=300`, not 100 (user-approved deviation):** a first run at `num_updates=100`
+  completed cleanly (no crash) but ended at `avg_reward=18.3`, far short of `>150` — reward
+  stayed near chance level (~9-12) for the first 63/100 updates, briefly peaked at 80 around
+  update 77, then declined. modRNN's restricted/sparse connectivity plausibly needs
+  substantially more updates to find a working policy than `RNN`/`biRNN`'s dense
+  connections did (both solved in ~35-51 updates) — consistent with modRNN's
+  already-observed weaker closed-loop control in the prior reward-tracking work. The user
+  chose to raise the budget to 300 rather than accept the result or retune other
+  hyperparameters first.
 - `train()`'s MPS cache-clearing keeps the every-10th-update condition, same as Task 1/2.
 - All other functions are byte-identical to Task 1/2's.
 
