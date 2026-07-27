@@ -33,6 +33,14 @@ new dependencies.
 - Success bar: `assert avg_reward > 150` (out of a 500 max) after the fixed 100-update
   budget — deliberately modest relative to CartPole-v1's official 475+ "solved" bar, given
   the compute cost noted below and vanilla REINFORCE's high sample complexity.
+- **Early stopping (added mid-execution, user request):** `train()` breaks out of the
+  update loop as soon as `avg_reward >= 500` (the environment's max possible reward) is
+  reached, printing a message and returning immediately, rather than continuing to the
+  full `num_updates` budget. This matters a lot in practice: once the policy is solved,
+  every remaining update's rollouts run at (or near) the full 500-step cap, which is by
+  far the most expensive regime for the O(T²) causal-rollout cost — RNN's actual first run
+  hit reward 500 at update 38/100 and, without this check, would have spent the other 62
+  updates at maximum per-episode cost for zero additional benefit.
 - **If 150 isn't cleared in 100 updates:** report the observed reward trend and ask the
   user before changing the budget or any hyperparameter — do not silently raise
   `num_updates`/`episodes_per_update` repeatedly or lower the threshold. This mirrors the
@@ -162,6 +170,9 @@ def train(model, device, num_updates: int, episodes_per_update: int = 8, live_pl
         print(f"update {update + 1}/{num_updates} loss {loss:.4f} reward {avg_reward:.1f}")
         if live_plot is not None:
             live_plot.update(update + 1, loss, avg_reward)
+        if avg_reward >= 500:
+            print(f"reached max reward (500) at update {update + 1}, stopping early")
+            break
     env.close()
     return avg_reward
 
