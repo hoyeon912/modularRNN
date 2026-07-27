@@ -45,19 +45,18 @@ new dependencies.
   calls `torch.mps.empty_cache()`, guarded by `if device.type == "mps"`.
   `biRNN`'s hand-rolled per-timestep tensor allocations (inside `collect_episode_stochastic`'s
   growing-prefix loop) accumulate in PyTorch's MPS memory pool faster than it's reclaimed,
-  and two consecutive runs crashed with
-  `Insufficient Memory (kIOGPUCommandBufferCallbackErrorOutOfMemory)` at different update
-  numbers (26 and 38) — confirming a recurring resource-exhaustion pattern, not a one-off
-  fluke, and not something retrying alone fixes. **Calling `empty_cache()` after every
-  single update was tried first and made training catastrophically slower** (stalled for
-  minutes per update instead of seconds) — clearing the MPS allocator pool forces every one
-  of the many small per-timestep tensor allocations to be freshly reallocated instead of
-  reused, which is expensive at this allocation rate. The working fix clears the cache only
-  every 10th update (`(update + 1) % 10 == 0`), trading a longer window for memory to
-  accumulate against keeping the allocator's normal reuse fast path most of the time.
-  Applied to all three folders' `train()` for consistency, since `RNN/`'s run also showed
-  climbing process memory (~3GB) even though it didn't cross the crash threshold in its one
-  run.
+  and crashed with `Insufficient Memory (kIOGPUCommandBufferCallbackErrorOutOfMemory)` at
+  three different update numbers across three attempts (26, then 38 with no fix, then 32
+  even with cache clearing every 10th update) — confirming the crash tracks *peak* memory
+  during a single update's backward pass (which grows with episode length as the policy
+  improves), not simple cross-update accumulation that periodic clearing can outrun.
+  **Only clearing after every single update reliably avoids the crash**, at a large,
+  accepted speed cost (each update's freshly-reallocated small tensors are far slower than
+  the allocator's normal reuse path). Per user decision: `RNN/` keeps clearing every 10th
+  update (`(update + 1) % 10 == 0`) since its one run completed without ever crashing;
+  `biRNN/` and `modRNN/` clear after every update (no modulo condition — just
+  `if device.type == "mps": torch.mps.empty_cache()`), trading training speed for
+  guaranteed completion, since both hit or are expected to hit the same crash pattern.
 - **If 150 isn't cleared in 100 updates:** report the observed reward trend and ask the
   user before changing the budget or any hyperparameter — do not silently raise
   `num_updates`/`episodes_per_update` repeatedly or lower the threshold. This mirrors the
@@ -270,8 +269,12 @@ Identical to Task 1's Step 1, except:
   `from model import BidirectionalRNN, get_device`.
 - In `main()`, use `model = BidirectionalRNN(input_size=4, hidden_size=32, output_size=2, output_mode="all").to(device)`
   and `live_plot = LiveTrainingPlot(title="biRNN/test_cartpole.py", metrics=("loss", "reward"))`.
+- In `train()`, the MPS cache-clearing condition is `if device.type == "mps":` with
+  **no modulo/frequency check** — clear after every update, not every 10th (per the Global
+  Constraints "MPS memory management" note: `biRNN` needs this to avoid a recurring
+  out-of-memory crash that periodic clearing didn't prevent).
 - All other functions (`rollout_episode`, `evaluate_reward`, `collect_episode_stochastic`,
-  `compute_returns`, `reinforce_update`, `train`) are byte-identical to Task 1's.
+  `compute_returns`, `reinforce_update`) are byte-identical to Task 1's.
 
 - [ ] **Step 2: Run the full script**
 
@@ -310,6 +313,8 @@ Identical to Task 2's Step 1, except:
   `model = ModularBidirectionalRNN(input_size=4, hidden_size=63, output_size=2, output_mode="all").to(device)`
   (keep `hidden_size=63` — this was tuned in an earlier, separate plan; do not change it)
   and `live_plot = LiveTrainingPlot(title="modRNN/test_cartpole.py", metrics=("loss", "reward"))`.
+- Same as `biRNN` (Task 2): `train()`'s MPS cache-clearing condition is
+  `if device.type == "mps":` with no modulo/frequency check — clear after every update.
 - All other functions are byte-identical to Task 1/2's.
 
 - [ ] **Step 2: Run the full script**
