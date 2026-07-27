@@ -53,6 +53,33 @@ def collate_pad(batch):
     return padded_states, padded_actions, mask
 
 
+def rollout_episode(model, env, device, max_steps: int = 500) -> float:
+    model.eval()
+    state, _ = env.reset()
+    states = [state]
+    total_reward = 0.0
+    with torch.no_grad():
+        for _ in range(max_steps):
+            x = torch.tensor(states, dtype=torch.float32, device=device).unsqueeze(0)
+            logits = model(x)
+            action = logits[0, -1].argmax().item()
+            state, reward, terminated, truncated, _ = env.step(action)
+            total_reward += reward
+            states.append(state)
+            if terminated or truncated:
+                break
+    return total_reward
+
+
+def evaluate_reward(model, device, num_episodes: int = 3, max_steps: int = 500) -> float:
+    env = gym.make("CartPole-v1")
+    total = 0.0
+    for _ in range(num_episodes):
+        total += rollout_episode(model, env, device, max_steps=max_steps)
+    env.close()
+    return total / num_episodes
+
+
 def train(model, train_loader, test_loader, device, epochs: int, lr: float = 1e-3, live_plot=None) -> float:
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = nn.CrossEntropyLoss(reduction="none")
@@ -71,9 +98,10 @@ def train(model, train_loader, test_loader, device, epochs: int, lr: float = 1e-
             total_loss += loss.item()
         avg_loss = total_loss / len(train_loader)
         accuracy = evaluate(model, test_loader, device)
-        print(f"epoch {epoch + 1}/{epochs} loss {avg_loss:.4f} accuracy {accuracy:.4f}")
+        reward = evaluate_reward(model, device)
+        print(f"epoch {epoch + 1}/{epochs} loss {avg_loss:.4f} accuracy {accuracy:.4f} reward {reward:.1f}")
         if live_plot is not None:
-            live_plot.update(epoch + 1, avg_loss, accuracy)
+            live_plot.update(epoch + 1, avg_loss, accuracy, reward)
     return accuracy
 
 
@@ -107,10 +135,18 @@ def main():
 
     model = SimpleRNN(input_size=4, hidden_size=32, output_size=2, output_mode="all").to(device)
 
-    live_plot = LiveTrainingPlot(title="RNN/test_cartpole.py")
+    live_plot = LiveTrainingPlot(title="RNN/test_cartpole.py", metrics=("loss", "accuracy", "reward"))
     accuracy = train(model, train_loader, test_loader, device, epochs=10, live_plot=live_plot)
     print(f"per-timestep action accuracy: {accuracy:.4f}")
     assert accuracy > 0.90, f"expected >90% action accuracy, got {accuracy:.4f}"
+
+    try:
+        render_env = gym.make("CartPole-v1", render_mode="human")
+        reward = rollout_episode(model, render_env, device)
+        render_env.close()
+        print(f"rendered episode reward: {reward:.0f}")
+    except Exception as e:
+        print(f"render skipped (no display available): {e}")
 
 
 if __name__ == "__main__":
