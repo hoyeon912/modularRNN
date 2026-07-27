@@ -69,11 +69,15 @@ class ModularRNNCell(nn.Module):
         self.register_buffer("ih_mask", _build_ih_mask(hidden_size))
         self.register_buffer("hh_mask", _build_hh_mask(hidden_size, near_module_sparsity))
 
+    def masked_weights(self) -> tuple[torch.Tensor, torch.Tensor]:
+        return self.weight_ih * self.ih_mask, self.weight_hh * self.hh_mask
+
+    def step(self, z: torch.Tensor, h: torch.Tensor, masked_ih: torch.Tensor, masked_hh: torch.Tensor) -> torch.Tensor:
+        return torch.tanh(F.linear(z, masked_ih, self.bias_ih) + F.linear(h, masked_hh, self.bias_hh))
+
     def forward(self, z: torch.Tensor, h: torch.Tensor) -> torch.Tensor:
-        return torch.tanh(
-            F.linear(z, self.weight_ih * self.ih_mask, self.bias_ih)
-            + F.linear(h, self.weight_hh * self.hh_mask, self.bias_hh)
-        )
+        masked_ih, masked_hh = self.masked_weights()
+        return self.step(z, h, masked_ih, masked_hh)
 
 
 class ModularBidirectionalRNN(nn.Module):
@@ -105,16 +109,18 @@ class ModularBidirectionalRNN(nn.Module):
         x = self.input_proj(x)
         batch_size, seq_len, _ = x.shape
 
+        fwd_ih, fwd_hh = self.fwd_cell.masked_weights()
         h_fwd = torch.zeros(batch_size, self.hidden_size, device=x.device, dtype=x.dtype)
         fwd_states = []
         for t in range(seq_len):
-            h_fwd = self.fwd_cell(x[:, t, :], h_fwd)
+            h_fwd = self.fwd_cell.step(x[:, t, :], h_fwd, fwd_ih, fwd_hh)
             fwd_states.append(h_fwd)
 
+        bwd_ih, bwd_hh = self.bwd_cell.masked_weights()
         h_bwd = torch.zeros(batch_size, self.hidden_size, device=x.device, dtype=x.dtype)
         bwd_states = [None] * seq_len
         for t in reversed(range(seq_len)):
-            h_bwd = self.bwd_cell(x[:, t, :], h_bwd)
+            h_bwd = self.bwd_cell.step(x[:, t, :], h_bwd, bwd_ih, bwd_hh)
             bwd_states[t] = h_bwd
 
         masked_weight = self.output_proj.weight * self.output_mask
