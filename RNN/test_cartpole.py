@@ -1,56 +1,8 @@
 import gymnasium as gym
-import numpy as np
 import torch
-import torch.nn as nn
-from torch.utils.data import DataLoader, Dataset
 
-from heuristic_policy import heuristic_action
 from live_plot import LiveTrainingPlot
 from model import SimpleRNN, get_device
-
-
-def collect_episodes(num_episodes: int, seed: int):
-    env = gym.make("CartPole-v1")
-    episodes = []
-    for i in range(num_episodes):
-        state, _ = env.reset(seed=seed + i)
-        states, actions = [], []
-        done = False
-        while not done:
-            action = heuristic_action(state)
-            states.append(state)
-            actions.append(action)
-            state, _, terminated, truncated, _ = env.step(action)
-            done = terminated or truncated
-        episodes.append((np.array(states, dtype=np.float32), np.array(actions, dtype=np.int64)))
-    env.close()
-    return episodes
-
-
-class CartPoleSequenceDataset(Dataset):
-    def __init__(self, episodes):
-        self.episodes = episodes
-
-    def __len__(self):
-        return len(self.episodes)
-
-    def __getitem__(self, idx):
-        states, actions = self.episodes[idx]
-        return torch.from_numpy(states), torch.from_numpy(actions)
-
-
-def collate_pad(batch):
-    lengths = [states.shape[0] for states, _ in batch]
-    max_len = max(lengths)
-    padded_states = torch.zeros(len(batch), max_len, 4)
-    padded_actions = torch.zeros(len(batch), max_len, dtype=torch.long)
-    mask = torch.zeros(len(batch), max_len, dtype=torch.bool)
-    for i, (states, actions) in enumerate(batch):
-        length = states.shape[0]
-        padded_states[i, :length] = states
-        padded_actions[i, :length] = actions
-        mask[i, :length] = True
-    return padded_states, padded_actions, mask
 
 
 def rollout_episode(model, env, device, max_steps: int = 500) -> float:
@@ -80,65 +32,88 @@ def evaluate_reward(model, device, num_episodes: int = 3, max_steps: int = 500) 
     return total / num_episodes
 
 
-def train(model, train_loader, test_loader, device, epochs: int, lr: float = 1e-3, live_plot=None) -> float:
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    criterion = nn.CrossEntropyLoss(reduction="none")
-    accuracy = 0.0
-    for epoch in range(epochs):
-        model.train()
-        total_loss = 0.0
-        for states, actions, mask in train_loader:
-            states, actions, mask = states.to(device), actions.to(device), mask.to(device)
-            optimizer.zero_grad()
-            logits = model(states)  # (batch, seq_len, 2)
-            loss_per_step = criterion(logits.transpose(1, 2), actions)  # (batch, seq_len)
-            loss = (loss_per_step * mask).sum() / mask.sum()
-            loss.backward()
-            optimizer.step()
-            total_loss += loss.item()
-        avg_loss = total_loss / len(train_loader)
-        accuracy = evaluate(model, test_loader, device)
-        reward = evaluate_reward(model, device)
-        print(f"epoch {epoch + 1}/{epochs} loss {avg_loss:.4f} accuracy {accuracy:.4f} reward {reward:.1f}")
+def collect_episode_stochastic(model, env, device, max_steps: int = 500):
+    model.train()
+    state, _ = env.reset()
+    states = [state]
+    log_probs = []
+    entropies = []
+    rewards = []
+    for _ in range(max_steps):
+        x = torch.tensor(states, dtype=torch.float32, device=device).unsqueeze(0)
+        logits = model(x)
+        dist = torch.distributions.Categorical(logits=logits[0, -1])
+        action = dist.sample()
+        log_probs.append(dist.log_prob(action))
+        entropies.append(dist.entropy())
+        state, reward, terminated, truncated, _ = env.step(action.item())
+        rewards.append(reward)
+        states.append(state)
+        if terminated or truncated:
+            break
+    return log_probs, entropies, rewards
+
+
+def compute_returns(rewards, gamma: float = 0.99):
+    returns = []
+    running = 0.0
+    for r in reversed(rewards):
+        running = r + gamma * running
+        returns.insert(0, running)
+    return returns
+
+
+def reinforce_update(model, optimizer, episode_batch, gamma: float = 0.99, entropy_coef: float = 0.01) -> float:
+    all_log_probs = []
+    all_entropies = []
+    all_returns = []
+    for log_probs, entropies, rewards in episode_batch:
+        all_log_probs.extend(log_probs)
+        all_entropies.extend(entropies)
+        all_returns.extend(compute_returns(rewards, gamma))
+
+    returns_tensor = torch.tensor(all_returns, dtype=torch.float32, device=all_log_probs[0].device)
+    baseline = returns_tensor.mean()
+    advantages = returns_tensor - baseline
+
+    log_probs_tensor = torch.stack(all_log_probs)
+    entropy_tensor = torch.stack(all_entropies)
+    policy_loss = -(log_probs_tensor * advantages).mean() - entropy_coef * entropy_tensor.mean()
+
+    optimizer.zero_grad()
+    policy_loss.backward()
+    optimizer.step()
+    return policy_loss.item()
+
+
+def train(model, device, num_updates: int, episodes_per_update: int = 8, live_plot=None) -> float:
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    env = gym.make("CartPole-v1")
+    avg_reward = 0.0
+    for update in range(num_updates):
+        batch = [collect_episode_stochastic(model, env, device) for _ in range(episodes_per_update)]
+        loss = reinforce_update(model, optimizer, batch)
+        avg_reward = evaluate_reward(model, device)
+        print(f"update {update + 1}/{num_updates} loss {loss:.4f} reward {avg_reward:.1f}")
         if live_plot is not None:
-            live_plot.update(epoch + 1, avg_loss, accuracy, reward)
-    return accuracy
-
-
-@torch.no_grad()
-def evaluate(model, loader, device) -> float:
-    model.eval()
-    correct = 0
-    total = 0
-    for states, actions, mask in loader:
-        states, actions, mask = states.to(device), actions.to(device), mask.to(device)
-        logits = model(states)
-        preds = logits.argmax(dim=-1)
-        correct += ((preds == actions) & mask).sum().item()
-        total += mask.sum().item()
-    return correct / total
+            live_plot.update(update + 1, loss, avg_reward)
+        if avg_reward >= 500:
+            print(f"reached max reward (500) at update {update + 1}, stopping early")
+            break
+    env.close()
+    return avg_reward
 
 
 def main():
     device = get_device()
     print(f"using device: {device}")
 
-    train_episodes = collect_episodes(num_episodes=200, seed=0)
-    test_episodes = collect_episodes(num_episodes=50, seed=1000)
-
-    train_loader = DataLoader(
-        CartPoleSequenceDataset(train_episodes), batch_size=16, shuffle=True, collate_fn=collate_pad
-    )
-    test_loader = DataLoader(
-        CartPoleSequenceDataset(test_episodes), batch_size=16, shuffle=False, collate_fn=collate_pad
-    )
-
     model = SimpleRNN(input_size=4, hidden_size=32, output_size=2, output_mode="all").to(device)
 
-    live_plot = LiveTrainingPlot(title="RNN/test_cartpole.py", metrics=("loss", "accuracy", "reward"))
-    accuracy = train(model, train_loader, test_loader, device, epochs=10, live_plot=live_plot)
-    print(f"per-timestep action accuracy: {accuracy:.4f}")
-    assert accuracy > 0.90, f"expected >90% action accuracy, got {accuracy:.4f}"
+    live_plot = LiveTrainingPlot(title="RNN/test_cartpole.py", metrics=("loss", "reward"))
+    avg_reward = train(model, device, num_updates=100, live_plot=live_plot)
+    print(f"average reward: {avg_reward:.1f}")
+    assert avg_reward > 150, f"expected average reward > 150, got {avg_reward:.1f}"
 
     try:
         render_env = gym.make("CartPole-v1", render_mode="human")
