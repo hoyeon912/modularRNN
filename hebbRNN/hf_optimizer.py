@@ -96,3 +96,79 @@ def conjugate_gradient(matvec, b, x0, max_iter, min_iter, tol, checkpoint_every,
         best_x = x
 
     return best_x, {"iters": iters_run, "residual": residual}
+
+
+class HFOptimizer:
+    def __init__(
+        self,
+        model,
+        curvature: str = "categorical",
+        initial_damping: float = 1.0,
+        cg_max_iter: int = 60,
+        cg_min_iter: int = 10,
+        cg_tol: float = 1e-4,
+        checkpoint_every: int = 5,
+        damping_min: float = 1e-8,
+        damping_max: float = 1e4,
+    ):
+        self.model = model
+        self.params = [p for p in model.parameters() if p.requires_grad]
+        self.curvature = curvature
+        self.damping = initial_damping
+        self.cg_max_iter = cg_max_iter
+        self.cg_min_iter = cg_min_iter
+        self.cg_tol = cg_tol
+        self.checkpoint_every = checkpoint_every
+        self.damping_min = damping_min
+        self.damping_max = damping_max
+
+    def _apply(self, x_flat: torch.Tensor) -> None:
+        deltas = _unflatten(x_flat, self.params)
+        with torch.no_grad():
+            for p, dx in zip(self.params, deltas):
+                p.add_(dx)
+
+    def step(self, objective_fn) -> dict:
+        loss, z = objective_fn(self.model)
+        grads = torch.autograd.grad(loss, self.params, create_graph=True, retain_graph=True)
+        grad_flat = _flatten(grads).detach()
+        b = -grad_flat
+
+        def matvec(v_flat: torch.Tensor) -> torch.Tensor:
+            v = _unflatten(v_flat.detach(), self.params)
+            hv = gauss_newton_hvp(z, self.params, v, self.curvature)
+            return _flatten(hv).detach() + self.damping * v_flat
+
+        def eval_fn(x_flat: torch.Tensor) -> float:
+            with torch.no_grad():
+                self._apply(x_flat)
+                new_loss, _ = objective_fn(self.model)
+                self._apply(-x_flat)
+            return new_loss.item()
+
+        x0 = torch.zeros_like(b)
+        x_best, diag = conjugate_gradient(
+            matvec, b, x0, self.cg_max_iter, self.cg_min_iter, self.cg_tol, self.checkpoint_every, eval_fn
+        )
+
+        loss_before = loss.item()
+        undamped_hx = matvec(x_best) - self.damping * x_best
+        predicted_decrease = -(grad_flat @ x_best + 0.5 * x_best @ undamped_hx).item()
+
+        self._apply(x_best)
+        loss_after_tensor, _ = objective_fn(self.model)
+        loss_after = loss_after_tensor.item()
+
+        actual_decrease = loss_before - loss_after
+        rho = actual_decrease / (predicted_decrease + 1e-8)
+        if rho > 0.75:
+            self.damping = max(self.damping * (2.0 / 3.0), self.damping_min)
+        elif rho < 0.25:
+            self.damping = min(self.damping * 1.5, self.damping_max)
+
+        return {
+            "loss_before": loss_before,
+            "loss_after": loss_after,
+            "cg_iters": diag["iters"],
+            "damping": self.damping,
+        }

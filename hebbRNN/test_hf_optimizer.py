@@ -151,3 +151,54 @@ def test_conjugate_gradient_checkpoints_on_early_stop():
     )
     assert diag["iters"] < 5
     assert torch.allclose(x_est, x_true, atol=1e-3)
+
+
+import torch.nn as nn
+
+from hf_optimizer import HFOptimizer
+from model import ModularBidirectionalRNN
+
+
+def test_hf_optimizer_step_does_not_increase_loss():
+    torch.manual_seed(0)
+    model = ModularBidirectionalRNN(input_size=4, hidden_size=9, output_size=3, output_mode="last")
+    optimizer = HFOptimizer(model, curvature="categorical", cg_max_iter=15, cg_min_iter=3)
+
+    x = torch.randn(6, 5, 4)
+    y = torch.randint(0, 3, (6,))
+    criterion = nn.CrossEntropyLoss()
+
+    def objective_fn(m):
+        z = m(x)
+        return criterion(z, y), z
+
+    diagnostics = optimizer.step(objective_fn)
+    assert diagnostics["loss_after"] <= diagnostics["loss_before"] + 1e-6
+
+    fwd = model.fwd_cell
+    assert torch.all(fwd.weight_ih.data[fwd.ih_mask == 0.0] == 0.0)
+    assert torch.all(fwd.weight_hh.data[fwd.hh_mask == 0.0] == 0.0)
+
+
+def test_hf_optimizer_reduces_loss_over_several_steps():
+    torch.manual_seed(1)
+    model = ModularBidirectionalRNN(input_size=4, hidden_size=9, output_size=3, output_mode="last")
+    optimizer = HFOptimizer(model, curvature="categorical", cg_max_iter=15, cg_min_iter=3)
+
+    x = torch.randn(6, 5, 4)
+    y = torch.randint(0, 3, (6,))
+    criterion = nn.CrossEntropyLoss()
+
+    def objective_fn(m):
+        z = m(x)
+        return criterion(z, y), z
+
+    first_loss = None
+    last_loss = None
+    for i in range(5):
+        diag = optimizer.step(objective_fn)
+        if i == 0:
+            first_loss = diag["loss_before"]
+        last_loss = diag["loss_after"]
+
+    assert last_loss < first_loss
