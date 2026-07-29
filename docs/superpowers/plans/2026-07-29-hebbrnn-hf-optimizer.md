@@ -463,9 +463,19 @@ def test_hf_optimizer_step_does_not_increase_loss():
     diagnostics = optimizer.step(objective_fn)
     assert diagnostics["loss_after"] <= diagnostics["loss_before"] + 1e-6
 
+    # weight_ih/weight_hh on both directions, and output_proj.weight, all carry the same
+    # register_hook-based masking (model.py) -- check all three masked parameter groups,
+    # not just fwd_cell, so this test actually proves HFOptimizer preserves the modular
+    # connectivity constraint everywhere it applies, not just in one place it happens to.
     fwd = model.fwd_cell
     assert torch.all(fwd.weight_ih.data[fwd.ih_mask == 0.0] == 0.0)
     assert torch.all(fwd.weight_hh.data[fwd.hh_mask == 0.0] == 0.0)
+
+    bwd = model.bwd_cell
+    assert torch.all(bwd.weight_ih.data[bwd.ih_mask == 0.0] == 0.0)
+    assert torch.all(bwd.weight_hh.data[bwd.hh_mask == 0.0] == 0.0)
+
+    assert torch.all(model.output_proj.weight.data[:, model.output_mask == 0.0] == 0.0)
 
 
 def test_hf_optimizer_reduces_loss_over_several_steps():
