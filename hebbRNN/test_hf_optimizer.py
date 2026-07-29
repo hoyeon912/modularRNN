@@ -119,6 +119,11 @@ def test_conjugate_gradient_backtracking_picks_best_checkpoint():
     x_est, diag = conjugate_gradient(
         matvec, b, x0, max_iter=1, min_iter=1, tol=0.0, checkpoint_every=1, eval_fn=eval_fn
     )
-    # single CG step on a 1x1 system lands exactly on the algebraic solution (x=5);
-    # backtracking must reject that in favor of the x=0 starting checkpoint (eval=1.0 < eval at x=5's 16.0)
-    assert eval_fn(x_est) <= eval_fn(torch.tensor([5.0]))
+    # single CG step on a 1x1 system lands exactly on the algebraic solution (x=5), whose
+    # eval_fn value (16.0) is what a backtracking-free implementation (returning the final
+    # iterate unconditionally) would also produce -- so this must assert x_est actually
+    # *is* the earlier x=0 checkpoint (not just "some x with eval <= 16.0", which x=5
+    # itself already satisfies non-strictly and would let a broken/absent backtracking
+    # path slip through undetected).
+    assert torch.allclose(x_est, torch.zeros(1), atol=1e-6)
+    assert eval_fn(x_est) < eval_fn(torch.tensor([5.0]))
