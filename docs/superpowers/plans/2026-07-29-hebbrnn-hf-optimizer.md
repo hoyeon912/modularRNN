@@ -122,15 +122,31 @@ def test_flatten_unflatten_roundtrip():
         assert torch.allclose(original, r)
 
 
+def _linear_forward(params, x):
+    w, b = params
+    return x @ w + b
+
+
+def _make_linear_params(in_dim=3, out_dim=2, seed=0):
+    g = torch.Generator().manual_seed(seed)
+    w = torch.randn(in_dim, out_dim, generator=g, requires_grad=True)
+    b = torch.randn(out_dim, generator=g, requires_grad=True)
+    return [w, b]
+
+
 def test_gauss_newton_hvp_mse_matches_true_hessian():
+    # Gauss-Newton curvature equals the *true* Hessian only when z(theta) is linear in
+    # theta (the residual-curvature term the GN approximation drops is then exactly
+    # zero) -- so this uses a plain linear model, not the tanh MLP (whose true Hessian
+    # would legitimately differ from its GN approximation).
     torch.manual_seed(0)
-    params = _make_toy_params()
+    params = _make_linear_params()
     x = torch.randn(5, 3)
     target = torch.randn(5, 2)
 
     def loss_fn(flat_params):
         p = _unflatten(flat_params, params)
-        z = _toy_mlp_forward(p, x)
+        z = _linear_forward(p, x)
         return 0.5 * ((z - target) ** 2).sum()
 
     flat_params = _flatten(params).detach().requires_grad_(True)
@@ -139,7 +155,7 @@ def test_gauss_newton_hvp_mse_matches_true_hessian():
     v = [torch.randn_like(p) for p in params]
     v_flat = _flatten(v)
 
-    z = _toy_mlp_forward(params, x)
+    z = _linear_forward(params, x)
     hv = gauss_newton_hvp(z, params, v, curvature="mse")
     hv_flat = _flatten(hv)
 
