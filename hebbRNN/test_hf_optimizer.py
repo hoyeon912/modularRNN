@@ -127,3 +127,27 @@ def test_conjugate_gradient_backtracking_picks_best_checkpoint():
     # path slip through undetected).
     assert torch.allclose(x_est, torch.zeros(1), atol=1e-6)
     assert eval_fn(x_est) < eval_fn(torch.tensor([5.0]))
+
+
+def test_conjugate_gradient_checkpoints_on_early_stop():
+    # A 2x2 diagonal SPD system converges in <= 2 iterations -- well before hitting any
+    # multiple of checkpoint_every=5 or max_iter=20. Without checkpointing whenever CG
+    # stops early (not just at checkpoint_every multiples / the final iteration), the
+    # converged iterate would never be evaluated at all, and best_x would incorrectly
+    # stay at x0 forever even though it's clearly worse by eval_fn.
+    a = torch.tensor([[3.0, 0.0], [0.0, 2.0]])
+    x_true = torch.tensor([1.0, 1.0])
+    b = a @ x_true
+
+    def matvec(v):
+        return a @ v
+
+    def eval_fn(x):
+        return ((x - x_true) ** 2).sum().item()
+
+    x0 = torch.zeros(2)
+    x_est, diag = conjugate_gradient(
+        matvec, b, x0, max_iter=20, min_iter=1, tol=1e-6, checkpoint_every=5, eval_fn=eval_fn
+    )
+    assert diag["iters"] < 5
+    assert torch.allclose(x_est, x_true, atol=1e-3)

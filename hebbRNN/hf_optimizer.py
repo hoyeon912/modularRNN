@@ -56,6 +56,8 @@ def conjugate_gradient(matvec, b, x0, max_iter, min_iter, tol, checkpoint_every,
     best_val = eval_fn(x) if eval_fn is not None else 0.0
 
     iters_run = 0
+    last_checkpointed_iter = 0
+    residual = None
     for i in range(max_iter):
         iters_run = i + 1
         ap = matvec(p)
@@ -71,9 +73,19 @@ def conjugate_gradient(matvec, b, x0, max_iter, min_iter, tol, checkpoint_every,
             if val < best_val:
                 best_val = val
                 best_x = x.clone()
+            last_checkpointed_iter = iters_run
 
         residual = rs_new.sqrt().item() / (b.norm().item() + 1e-12)
-        if iters_run >= min_iter and residual < tol:
+        should_stop = iters_run >= min_iter and residual < tol
+        if should_stop:
+            # Early stop can land between checkpoints (e.g. converge at iteration 2 when
+            # checkpoint_every=5) -- without this, the final converged iterate would never
+            # be evaluated at all, and best_x would incorrectly stay at x0 forever.
+            if eval_fn is not None and iters_run != last_checkpointed_iter:
+                val = eval_fn(x)
+                if val < best_val:
+                    best_val = val
+                    best_x = x.clone()
             break
 
         beta = rs_new / (rs_old + 1e-12)
