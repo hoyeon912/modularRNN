@@ -44,3 +44,43 @@ def gauss_newton_hvp(
     curved = curvature_fn(z, jv)
     hv = torch.autograd.grad(z, params, grad_outputs=curved, retain_graph=True)
     return list(hv)
+
+
+def conjugate_gradient(matvec, b, x0, max_iter, min_iter, tol, checkpoint_every, eval_fn):
+    x = x0.clone()
+    r = b - matvec(x)
+    p = r.clone()
+    rs_old = r @ r
+
+    best_x = x.clone()
+    best_val = eval_fn(x) if eval_fn is not None else 0.0
+
+    iters_run = 0
+    for i in range(max_iter):
+        iters_run = i + 1
+        ap = matvec(p)
+        denom = p @ ap
+        alpha = rs_old / (denom + 1e-12)
+        x = x + alpha * p
+        r = r - alpha * ap
+        rs_new = r @ r
+
+        is_checkpoint = (iters_run % checkpoint_every == 0) or (iters_run == max_iter)
+        if eval_fn is not None and is_checkpoint:
+            val = eval_fn(x)
+            if val < best_val:
+                best_val = val
+                best_x = x.clone()
+
+        residual = rs_new.sqrt().item() / (b.norm().item() + 1e-12)
+        if iters_run >= min_iter and residual < tol:
+            break
+
+        beta = rs_new / (rs_old + 1e-12)
+        p = r + beta * p
+        rs_old = rs_new
+
+    if eval_fn is None:
+        best_x = x
+
+    return best_x, {"iters": iters_run, "residual": residual}

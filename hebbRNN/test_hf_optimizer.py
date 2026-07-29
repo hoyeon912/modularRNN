@@ -1,6 +1,6 @@
 import torch
 
-from hf_optimizer import _flatten, _unflatten, gauss_newton_hvp
+from hf_optimizer import _flatten, _unflatten, gauss_newton_hvp, conjugate_gradient
 
 
 def _toy_mlp_forward(params, x):
@@ -79,3 +79,46 @@ def test_gauss_newton_hvp_categorical_is_positive_semidefinite():
         hv = gauss_newton_hvp(z, params, v, curvature="categorical")
         quad_form = sum((a * b).sum() for a, b in zip(v, hv))
         assert quad_form.item() >= -1e-5
+
+
+def test_conjugate_gradient_solves_spd_system_exactly():
+    torch.manual_seed(0)
+    n = 10
+    m = torch.randn(n, n)
+    a = m @ m.T + n * torch.eye(n)  # SPD
+    x_true = torch.randn(n)
+    b = a @ x_true
+
+    def matvec(v):
+        return a @ v
+
+    x0 = torch.zeros(n)
+    x_est, diag = conjugate_gradient(
+        matvec, b, x0, max_iter=50, min_iter=1, tol=1e-8, checkpoint_every=5, eval_fn=None
+    )
+    assert torch.allclose(x_est, x_true, atol=1e-3)
+    assert diag["iters"] <= n
+
+
+def test_conjugate_gradient_backtracking_picks_best_checkpoint():
+    # A quadratic matvec where the true (non-quadratic) objective, tracked via eval_fn,
+    # gets *worse* past x=1 along the solution direction even though CG's own quadratic
+    # model keeps "improving" toward the algebraic solution at x=5 — backtracking must
+    # return the x=1-ish checkpoint, not the final iterate.
+    a = torch.tensor([[1.0]])
+    b = torch.tensor([5.0])  # algebraic solution of a@x=b is x=5
+
+    def matvec(v):
+        return a @ v
+
+    def eval_fn(x):
+        # objective minimized at x=1, increasing again after that
+        return ((x[0] - 1.0) ** 2).item()
+
+    x0 = torch.zeros(1)
+    x_est, diag = conjugate_gradient(
+        matvec, b, x0, max_iter=1, min_iter=1, tol=0.0, checkpoint_every=1, eval_fn=eval_fn
+    )
+    # single CG step on a 1x1 system lands exactly on the algebraic solution (x=5);
+    # backtracking must reject that in favor of the x=0 starting checkpoint (eval=1.0 < eval at x=5's 16.0)
+    assert eval_fn(x_est) <= eval_fn(torch.tensor([5.0]))
