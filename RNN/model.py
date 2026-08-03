@@ -23,16 +23,22 @@ class SimpleRNN(nn.Module):
         self.rnn = nn.RNN(hidden_size, hidden_size, batch_first=True, bidirectional=True)
         self.output_proj = nn.Linear(hidden_size * 2, output_size)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, x: torch.Tensor, return_hidden: bool = False
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         x = self.input_proj(x)
         outputs, hidden = self.rnn(x)
         # outputs: (batch, seq_len, hidden_size*2)
         # hidden: (2, batch, hidden_size) -- num_layers=1, bidirectional=True -> [forward, backward]
 
         if self.output_mode == "all":
-            return self.output_proj(outputs)
+            result = self.output_proj(outputs)
+        else:
+            forward_last = hidden[0]
+            backward_last = hidden[1]
+            combined = torch.cat([forward_last, backward_last], dim=1)
+            result = self.output_proj(combined)
 
-        forward_last = hidden[0]
-        backward_last = hidden[1]
-        combined = torch.cat([forward_last, backward_last], dim=1)
-        return self.output_proj(combined)
+        if return_hidden:
+            return result, outputs
+        return result
