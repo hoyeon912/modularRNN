@@ -1,4 +1,6 @@
 import json
+import logging
+from pathlib import Path
 
 import torch
 import torch.nn as nn
@@ -7,6 +9,9 @@ from torchvision import datasets, transforms
 
 from live_plot import LiveTrainingPlot
 from model import BidirectionalRNN, get_device
+from run_artifacts import make_run_dir, save_activity_snapshot, setup_logger
+
+logger = logging.getLogger(__name__)
 
 
 def load_data(batch_size: int = 128):
@@ -22,11 +27,11 @@ def to_sequence(images: torch.Tensor) -> torch.Tensor:
     return images.squeeze(1)
 
 
-def save_results(model, history, results_path: str, model_path: str) -> None:
+def save_results(model, history, results_path: Path, model_path: Path) -> None:
     with open(results_path, "w") as f:
         json.dump(history, f, indent=2)
     torch.save(model.state_dict(), model_path)
-    print(f"saved {len(history)} epoch(s) of history to {results_path}, model weights to {model_path}")
+    logger.info(f"saved {len(history)} epoch(s) of history to {results_path}, model weights to {model_path}")
 
 
 def train(
@@ -35,15 +40,18 @@ def train(
     test_loader,
     device,
     epochs: int,
+    run_dir: Path,
     lr: float = 1e-3,
     live_plot=None,
-    results_path: str = "mnist_results.json",
-    model_path: str = "mnist_model.pt",
+    module_bounds: list[int] | None = None,
 ) -> float:
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = nn.CrossEntropyLoss()
     accuracy = 0.0
     history = []
+    activity_dir = run_dir / "activity"
+    sample_images, _ = next(iter(test_loader))
+    activity_sample = to_sequence(sample_images[:1]).to(device)
     try:
         for epoch in range(epochs):
             model.train()
@@ -60,12 +68,19 @@ def train(
                 total_loss += loss.item()
             avg_loss = total_loss / len(train_loader)
             accuracy = evaluate(model, test_loader, device)
-            print(f"epoch {epoch + 1}/{epochs} loss {avg_loss:.4f} accuracy {accuracy:.4f}")
+            logger.info(f"epoch {epoch + 1}/{epochs} loss {avg_loss:.4f} accuracy {accuracy:.4f}")
             history.append({"epoch": epoch + 1, "loss": avg_loss, "accuracy": accuracy})
             if live_plot is not None:
                 live_plot.update(epoch + 1, avg_loss, accuracy)
+
+            model.eval()
+            with torch.no_grad():
+                _, hidden = model(activity_sample, return_hidden=True)
+            save_activity_snapshot(hidden[0], activity_dir, f"epoch_{epoch + 1:02d}", module_bounds)
     finally:
-        save_results(model, history, results_path, model_path)
+        save_results(model, history, run_dir / "results.json", run_dir / "model.pt")
+        if live_plot is not None:
+            live_plot.save(run_dir / "curve.png")
     return accuracy
 
 
@@ -86,14 +101,31 @@ def evaluate(model, loader, device) -> float:
 
 def main():
     device = get_device()
-    print(f"using device: {device}")
+
+    run_dir = make_run_dir("mnist")
+    setup_logger(__name__, run_dir / "train.log")
+    logger.info(f"using device: {device}")
+
+    hidden_size = 64
+    logger.info(
+        f"model: BidirectionalRNN(input_size=28, hidden_size={hidden_size}, output_size=10, output_mode='last')"
+    )
 
     train_loader, test_loader = load_data()
-    model = BidirectionalRNN(input_size=28, hidden_size=64, output_size=10, output_mode="last").to(device)
+    model = BidirectionalRNN(input_size=28, hidden_size=hidden_size, output_size=10, output_mode="last").to(device)
 
     live_plot = LiveTrainingPlot(title="biRNN/test_mnist.py")
-    accuracy = train(model, train_loader, test_loader, device, epochs=5, live_plot=live_plot)
-    print(f"test accuracy: {accuracy:.4f}")
+    accuracy = train(
+        model,
+        train_loader,
+        test_loader,
+        device,
+        epochs=5,
+        run_dir=run_dir,
+        live_plot=live_plot,
+        module_bounds=[hidden_size],
+    )
+    logger.info(f"test accuracy: {accuracy:.4f}")
     assert accuracy > 0.90, f"expected >90% accuracy, got {accuracy:.4f}"
 
 
