@@ -91,7 +91,7 @@ def main():
     train_loader, test_loader = load_data()
     model = ModularBidirectionalRNN(input_size=28, hidden_size=63, output_size=10, output_mode="last").to(device)
 
-    live_plot = LiveTrainingPlot(title="hebbRNN/test_mnist.py")
+    live_plot = LiveTrainingPlot(title="hfRNN/test_mnist.py")
     accuracy = train(model, train_loader, test_loader, device, epochs=5, live_plot=live_plot)
     print(f"test accuracy: {accuracy:.4f}")
     assert accuracy > 0.90, f"expected >90% accuracy, got {accuracy:.4f}"

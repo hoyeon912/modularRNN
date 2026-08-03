@@ -1,4 +1,4 @@
-# hebbRNN/test_cartpole.py
+# hfRNN/test_cartpole.py
 import json
 
 import gymnasium as gym
@@ -143,7 +143,7 @@ def main():
 
     model = ModularBidirectionalRNN(input_size=4, hidden_size=300, output_size=2, output_mode="all").to(device)
 
-    live_plot = LiveTrainingPlot(title="hebbRNN/test_cartpole.py", metrics=("loss", "reward"))
+    live_plot = LiveTrainingPlot(title="hfRNN/test_cartpole.py", metrics=("loss", "reward"))
     avg_reward, _ = train(model, device, num_updates=5, episodes_per_update=4, live_plot=live_plot)
     print(f"average reward: {avg_reward:.1f}")
     assert avg_reward > 150, f"expected average reward > 150, got {avg_reward:.1f}"
