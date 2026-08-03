@@ -6,7 +6,7 @@ import torch
 
 from hf_optimizer import HFOptimizer
 from live_plot import LiveTrainingPlot
-from model import ModularBidirectionalRNN, get_device
+from model import ModularRNN, get_device
 
 
 def rollout_episode(model, env, device, max_steps: int = 500) -> float:
@@ -141,7 +141,7 @@ def main():
     device = get_device()
     print(f"using device: {device}")
 
-    model = ModularBidirectionalRNN(input_size=4, hidden_size=300, output_size=2, output_mode="all").to(device)
+    model = ModularRNN(input_size=4, hidden_size=300, output_size=2, output_mode="all").to(device)
 
     live_plot = LiveTrainingPlot(title="hfRNN/test_cartpole.py", metrics=("loss", "reward"))
     avg_reward, _ = train(model, device, num_updates=5, episodes_per_update=4, live_plot=live_plot)

@@ -156,12 +156,12 @@ def test_conjugate_gradient_checkpoints_on_early_stop():
 import torch.nn as nn
 
 from hf_optimizer import HFOptimizer
-from model import ModularBidirectionalRNN
+from model import ModularRNN
 
 
 def test_hf_optimizer_step_does_not_increase_loss():
     torch.manual_seed(0)
-    model = ModularBidirectionalRNN(input_size=4, hidden_size=9, output_size=3, output_mode="last")
+    model = ModularRNN(input_size=4, hidden_size=9, output_size=3, output_mode="last")
     optimizer = HFOptimizer(model, curvature="categorical", cg_max_iter=15, cg_min_iter=3)
 
     x = torch.randn(6, 5, 4)
@@ -175,20 +175,16 @@ def test_hf_optimizer_step_does_not_increase_loss():
     diagnostics = optimizer.step(objective_fn)
     assert diagnostics["loss_after"] <= diagnostics["loss_before"] + 1e-6
 
-    fwd = model.fwd_cell
-    assert torch.all(fwd.weight_ih.data[fwd.ih_mask == 0.0] == 0.0)
-    assert torch.all(fwd.weight_hh.data[fwd.hh_mask == 0.0] == 0.0)
-
-    bwd = model.bwd_cell
-    assert torch.all(bwd.weight_ih.data[bwd.ih_mask == 0.0] == 0.0)
-    assert torch.all(bwd.weight_hh.data[bwd.hh_mask == 0.0] == 0.0)
+    cell = model.cell
+    assert torch.all(cell.weight_ih.data[cell.ih_mask == 0.0] == 0.0)
+    assert torch.all(cell.weight_hh.data[cell.hh_mask == 0.0] == 0.0)
 
     assert torch.all(model.output_proj.weight.data[:, model.output_mask == 0.0] == 0.0)
 
 
 def test_hf_optimizer_reduces_loss_over_several_steps():
     torch.manual_seed(1)
-    model = ModularBidirectionalRNN(input_size=4, hidden_size=9, output_size=3, output_mode="last")
+    model = ModularRNN(input_size=4, hidden_size=9, output_size=3, output_mode="last")
     optimizer = HFOptimizer(model, curvature="categorical", cg_max_iter=15, cg_min_iter=3)
 
     x = torch.randn(6, 5, 4)
