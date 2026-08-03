@@ -43,3 +43,19 @@ def test_update_is_noop_when_disabled():
     with patch("live_plot.plt.subplots", side_effect=RuntimeError("no display")):
         plot = LiveTrainingPlot(title="test")
     plot.update(1, 0.5, 0.8)  # must not raise
+
+
+def test_save_writes_figure_to_path(tmp_path):
+    plot = LiveTrainingPlot(title="test")
+    plot.update(1, 0.5, 0.8)
+    out_path = tmp_path / "curve.png"
+    plot.save(out_path)
+    assert out_path.exists()
+
+
+def test_save_is_noop_when_disabled(tmp_path):
+    with patch("live_plot.plt.subplots", side_effect=RuntimeError("no display")):
+        plot = LiveTrainingPlot(title="test")
+    out_path = tmp_path / "curve.png"
+    plot.save(out_path)  # must not raise
+    assert not out_path.exists()

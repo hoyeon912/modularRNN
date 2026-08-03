@@ -55,3 +55,8 @@ class LiveTrainingPlot:
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
         plt.pause(0.001)
+
+    def save(self, path) -> None:
+        if not self.enabled:
+            return
+        self.fig.savefig(path)
