@@ -25,7 +25,9 @@ class BidirectionalRNN(nn.Module):
         self.bwd_cell = nn.RNNCell(hidden_size, hidden_size)
         self.output_proj = nn.Linear(hidden_size * 2, output_size)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, x: torch.Tensor, return_hidden: bool = False
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         x = self.input_proj(x)
         batch_size, seq_len, _ = x.shape
 
@@ -41,12 +43,17 @@ class BidirectionalRNN(nn.Module):
             h_bwd = self.bwd_cell(x[:, t, :], h_bwd)
             bwd_states[t] = h_bwd
 
-        if self.output_mode == "all":
-            combined = torch.stack(
-                [torch.cat([fwd_states[t], bwd_states[t]], dim=1) for t in range(seq_len)],
-                dim=1,
-            )
-            return self.output_proj(combined)
+        outputs = torch.stack(
+            [torch.cat([fwd_states[t], bwd_states[t]], dim=1) for t in range(seq_len)],
+            dim=1,
+        )
 
-        combined = torch.cat([fwd_states[-1], bwd_states[0]], dim=1)
-        return self.output_proj(combined)
+        if self.output_mode == "all":
+            result = self.output_proj(outputs)
+        else:
+            combined = torch.cat([fwd_states[-1], bwd_states[0]], dim=1)
+            result = self.output_proj(combined)
+
+        if return_hidden:
+            return result, outputs
+        return result
