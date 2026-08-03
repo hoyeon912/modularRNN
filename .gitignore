@@ -222,10 +222,8 @@ RNN/data/
 biRNN/data/
 modRNN/data/
 
-# Saved training results/model checkpoints
-RNN/*_results.json
-RNN/*_model.pt
-biRNN/*_results.json
-biRNN/*_model.pt
-modRNN/*_results.json
-modRNN/*_model.pt
+# Saved training results/model checkpoints/logs/figures/activity
+RNN/results/
+biRNN/results/
+modRNN/results/
+hfRNN/results/
