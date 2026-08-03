@@ -1,6 +1,6 @@
 import torch
 
-from model import ModularBidirectionalRNN, ModularRNNCell, get_device
+from model import ModularRNN, ModularRNNCell, get_device
 
 
 def _module_bounds(hidden_size: int) -> tuple[int, int]:
@@ -9,21 +9,21 @@ def _module_bounds(hidden_size: int) -> tuple[int, int]:
 
 
 def test_output_shape_last_mode():
-    model = ModularBidirectionalRNN(input_size=4, hidden_size=9, output_size=2, output_mode="last")
+    model = ModularRNN(input_size=4, hidden_size=9, output_size=2, output_mode="last")
     x = torch.randn(3, 10, 4)
     out = model(x)
     assert out.shape == (3, 2)
 
 
 def test_output_shape_all_mode():
-    model = ModularBidirectionalRNN(input_size=4, hidden_size=9, output_size=2, output_mode="all")
+    model = ModularRNN(input_size=4, hidden_size=9, output_size=2, output_mode="all")
     x = torch.randn(3, 10, 4)
     out = model(x)
     assert out.shape == (3, 10, 2)
 
 
 def test_default_output_mode_is_last():
-    model = ModularBidirectionalRNN(input_size=4, hidden_size=9, output_size=2)
+    model = ModularRNN(input_size=4, hidden_size=9, output_size=2)
     x = torch.randn(2, 5, 4)
     out = model(x)
     assert out.shape == (2, 2)
@@ -31,7 +31,7 @@ def test_default_output_mode_is_last():
 
 def test_invalid_output_mode_raises():
     try:
-        ModularBidirectionalRNN(input_size=4, hidden_size=9, output_size=2, output_mode="bogus")
+        ModularRNN(input_size=4, hidden_size=9, output_size=2, output_mode="bogus")
         assert False, "expected ValueError"
     except ValueError:
         pass
@@ -39,7 +39,7 @@ def test_invalid_output_mode_raises():
 
 def test_hidden_size_not_divisible_by_3_raises():
     try:
-        ModularBidirectionalRNN(input_size=4, hidden_size=10, output_size=2)
+        ModularRNN(input_size=4, hidden_size=10, output_size=2)
         assert False, "expected ValueError"
     except ValueError:
         pass
@@ -90,14 +90,12 @@ def test_forbidden_hh_blocks_never_contribute_regardless_of_weight():
     assert torch.all(masked[hi:, :lo] == 0.0)
 
 
-def test_output_mask_restricts_to_output_module_both_directions():
-    model = ModularBidirectionalRNN(input_size=4, hidden_size=9, output_size=2)
+def test_output_mask_restricts_to_output_module():
+    model = ModularRNN(input_size=4, hidden_size=9, output_size=2)
     lo, hi = _module_bounds(9)
     mask = model.output_mask
     assert torch.all(mask[hi:9] == 1.0)
-    assert torch.all(mask[9 + hi : 18] == 1.0)
     assert torch.all(mask[:hi] == 0.0)
-    assert torch.all(mask[9 : 9 + hi] == 0.0)
 
 
 def test_raw_weight_data_is_zero_outside_mask_after_init():
@@ -105,12 +103,12 @@ def test_raw_weight_data_is_zero_outside_mask_after_init():
     assert torch.all(cell.weight_ih.data[cell.ih_mask == 0.0] == 0.0)
     assert torch.all(cell.weight_hh.data[cell.hh_mask == 0.0] == 0.0)
 
-    model = ModularBidirectionalRNN(input_size=4, hidden_size=9, output_size=2)
+    model = ModularRNN(input_size=4, hidden_size=9, output_size=2)
     assert torch.all(model.output_proj.weight.data[:, model.output_mask == 0.0] == 0.0)
 
 
 def test_masked_entries_stay_zero_after_optimizer_step():
-    model = ModularBidirectionalRNN(input_size=4, hidden_size=9, output_size=2)
+    model = ModularRNN(input_size=4, hidden_size=9, output_size=2)
     optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
 
     x = torch.randn(3, 5, 4)
@@ -118,9 +116,9 @@ def test_masked_entries_stay_zero_after_optimizer_step():
     out.sum().backward()
     optimizer.step()
 
-    fwd = model.fwd_cell
-    assert torch.all(fwd.weight_ih.data[fwd.ih_mask == 0.0] == 0.0)
-    assert torch.all(fwd.weight_hh.data[fwd.hh_mask == 0.0] == 0.0)
+    cell = model.cell
+    assert torch.all(cell.weight_ih.data[cell.ih_mask == 0.0] == 0.0)
+    assert torch.all(cell.weight_hh.data[cell.hh_mask == 0.0] == 0.0)
     assert torch.all(model.output_proj.weight.data[:, model.output_mask == 0.0] == 0.0)
 
 
@@ -147,5 +145,29 @@ def test_ih_weight_has_no_sqrt_input_size_scaling():
 
 
 def test_no_input_proj_attribute():
-    model = ModularBidirectionalRNN(input_size=4, hidden_size=9, output_size=2)
+    model = ModularRNN(input_size=4, hidden_size=9, output_size=2)
     assert not hasattr(model, "input_proj")
+
+
+def test_forward_return_hidden_shape():
+    model = ModularRNN(input_size=4, hidden_size=9, output_size=2, output_mode="last")
+    x = torch.randn(3, 5, 4)
+    out, hidden = model(x, return_hidden=True)
+    assert out.shape == (3, 2)
+    assert hidden.shape == (3, 5, 9)
+
+
+def test_forward_return_hidden_shape_all_mode():
+    model = ModularRNN(input_size=4, hidden_size=9, output_size=2, output_mode="all")
+    x = torch.randn(3, 5, 4)
+    out, hidden = model(x, return_hidden=True)
+    assert out.shape == (3, 5, 2)
+    assert hidden.shape == (3, 5, 9)
+
+
+def test_forward_without_return_hidden_returns_tensor_only():
+    model = ModularRNN(input_size=4, hidden_size=9, output_size=2, output_mode="last")
+    x = torch.randn(3, 5, 4)
+    out = model(x)
+    assert isinstance(out, torch.Tensor)
+    assert out.shape == (3, 2)

@@ -58,9 +58,8 @@ def _build_hh_mask(hidden_size: int, near_module_sparsity: float) -> torch.Tenso
 
 def _build_output_mask(hidden_size: int) -> torch.Tensor:
     _, _, output_sl = _module_slices(hidden_size)
-    mask = torch.zeros(hidden_size * 2)
+    mask = torch.zeros(hidden_size)
     mask[output_sl] = 1.0
-    mask[hidden_size + output_sl.start : hidden_size + output_sl.stop] = 1.0
     return mask
 
 
@@ -103,20 +102,12 @@ def _init_ih_weight(hidden_size: int, input_size: int, gain: float) -> torch.Ten
 
 
 def _init_output_weight(hidden_size: int, output_size: int, gain: float) -> torch.Tensor:
-    """Output module -> output, dense both directions. c is the combined fwd+bwd fan-in
-    (2 * output-module size) rather than each half's own size, since bidirectionality
-    (a CLAUDE.md requirement absent from the original single-direction reference) doubles
-    the number of live incoming connections per output unit relative to make_subpools.m's
-    ZRCGraph; using the combined count keeps output pre-activation variance ~= gain**2,
-    matching the original's variance-preserving intent instead of doubling it."""
+    """Output module -> output, dense. c is the output module's own fan-in size,
+    matching make_subpools.m's ZRCGraph variance-preserving initialization."""
     _, _, output_sl = _module_slices(hidden_size)
     n = output_sl.stop - output_sl.start
-    c = 2 * n
-    weight = torch.zeros(output_size, hidden_size * 2)
-    weight[:, output_sl.start : output_sl.stop] = torch.randn(output_size, n) * gain / (c**0.5)
-    weight[:, hidden_size + output_sl.start : hidden_size + output_sl.stop] = (
-        torch.randn(output_size, n) * gain / (c**0.5)
-    )
+    weight = torch.zeros(output_size, hidden_size)
+    weight[:, output_sl.start : output_sl.stop] = torch.randn(output_size, n) * gain / (n**0.5)
     return weight
 
 
@@ -165,8 +156,8 @@ class ModularRNNCell(nn.Module):
         return self.step(x, h, masked_ih, masked_hh)
 
 
-class ModularBidirectionalRNN(nn.Module):
-    """Bidirectional RNN whose hidden layer is split into input/intermediate/output modules with restricted connectivity."""
+class ModularRNN(nn.Module):
+    """RNN whose hidden layer is split into input/intermediate/output modules with restricted connectivity."""
 
     def __init__(
         self,
@@ -187,41 +178,35 @@ class ModularBidirectionalRNN(nn.Module):
         self.output_mode = output_mode
         self.hidden_size = hidden_size
 
-        self.fwd_cell = ModularRNNCell(input_size, hidden_size, near_module_sparsity, recurrent_gain, input_gain)
-        self.bwd_cell = ModularRNNCell(input_size, hidden_size, near_module_sparsity, recurrent_gain, input_gain)
+        self.cell = ModularRNNCell(input_size, hidden_size, near_module_sparsity, recurrent_gain, input_gain)
 
-        self.output_proj = nn.Linear(hidden_size * 2, output_size)
+        self.output_proj = nn.Linear(hidden_size, output_size)
         self.register_buffer("output_mask", _build_output_mask(hidden_size))
         with torch.no_grad():
             self.output_proj.weight.copy_(_init_output_weight(hidden_size, output_size, output_gain))
             self.output_proj.weight.mul_(self.output_mask)
         self.output_proj.weight.register_hook(lambda grad: grad * self.output_mask)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, x: torch.Tensor, return_hidden: bool = False
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         batch_size, seq_len, _ = x.shape
 
-        fwd_ih, fwd_hh = self.fwd_cell.masked_weights()
-        h_fwd = torch.zeros(batch_size, self.hidden_size, device=x.device, dtype=x.dtype)
-        fwd_states = []
+        ih, hh = self.cell.masked_weights()
+        h = torch.zeros(batch_size, self.hidden_size, device=x.device, dtype=x.dtype)
+        states = []
         for t in range(seq_len):
-            h_fwd = self.fwd_cell.step(x[:, t, :], h_fwd, fwd_ih, fwd_hh)
-            fwd_states.append(h_fwd)
+            h = self.cell.step(x[:, t, :], h, ih, hh)
+            states.append(h)
 
-        bwd_ih, bwd_hh = self.bwd_cell.masked_weights()
-        h_bwd = torch.zeros(batch_size, self.hidden_size, device=x.device, dtype=x.dtype)
-        bwd_states = [None] * seq_len
-        for t in reversed(range(seq_len)):
-            h_bwd = self.bwd_cell.step(x[:, t, :], h_bwd, bwd_ih, bwd_hh)
-            bwd_states[t] = h_bwd
-
+        outputs = torch.stack(states, dim=1)
         masked_weight = self.output_proj.weight * self.output_mask
 
         if self.output_mode == "all":
-            combined = torch.stack(
-                [torch.cat([fwd_states[t], bwd_states[t]], dim=1) for t in range(seq_len)],
-                dim=1,
-            )
-            return F.linear(combined, masked_weight, self.output_proj.bias)
+            result = F.linear(outputs, masked_weight, self.output_proj.bias)
+        else:
+            result = F.linear(states[-1], masked_weight, self.output_proj.bias)
 
-        combined = torch.cat([fwd_states[-1], bwd_states[0]], dim=1)
-        return F.linear(combined, masked_weight, self.output_proj.bias)
+        if return_hidden:
+            return result, outputs
+        return result
