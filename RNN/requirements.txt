@@ -1,6 +1,0 @@
-torch
-torchvision
-gymnasium
-numpy
-pytest
-matplotlib

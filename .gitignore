@@ -218,12 +218,7 @@ __marimo__/
 .streamlit/secrets.toml
 
 # Downloaded datasets
-RNN/data/
-biRNN/data/
-modRNN/data/
+/data/
 
 # Saved training results/model checkpoints/logs/figures/activity
-RNN/results/
-biRNN/results/
-modRNN/results/
-hfRNN/results/
+/results/
