@@ -128,6 +128,24 @@ class HFOptimizer:
             for p, dx in zip(self.params, deltas):
                 p.add_(dx)
 
+    def _probe(self, x_flat: torch.Tensor, objective_fn):
+        """Evaluate objective_fn at theta + x without an in-place write to `self.params`.
+        `eval_fn` runs mid-CG-loop while `matvec` still needs to backward through the
+        `z` graph from the original forward pass; an in-place p.add_/sub_ bumps each
+        leaf's version counter even after being reverted back to its original value,
+        which invalidates that retained graph for every later CG iteration. Swapping
+        `p.data` to a new tensor (and back) instead leaves the original tensor object
+        the graph saved untouched, so the retained graph stays valid."""
+        deltas = _unflatten(x_flat, self.params)
+        originals = [p.data for p in self.params]
+        with torch.no_grad():
+            for p, dx in zip(self.params, deltas):
+                p.data = p.data + dx
+            result = objective_fn(self.model)
+            for p, orig in zip(self.params, originals):
+                p.data = orig
+        return result
+
     def step(self, objective_fn) -> dict:
         loss, z = objective_fn(self.model)
         grads = torch.autograd.grad(loss, self.params, create_graph=True, retain_graph=True)
@@ -140,10 +158,7 @@ class HFOptimizer:
             return _flatten(hv).detach() + self.damping * v_flat
 
         def eval_fn(x_flat: torch.Tensor) -> float:
-            with torch.no_grad():
-                self._apply(x_flat)
-                new_loss, _ = objective_fn(self.model)
-                self._apply(-x_flat)
+            new_loss, _ = self._probe(x_flat, objective_fn)
             return new_loss.item()
 
         x0 = torch.zeros_like(b)

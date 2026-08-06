@@ -126,8 +126,9 @@ def train_adam(
     live_plot=None,
     results_path: str = "cartpole_results.json",
     model_path: str = "cartpole_model.pt",
+    lr: float = 1e-3,
 ):
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     env = gym.make("CartPole-v1")
     avg_reward = 0.0
     history = []
@@ -246,6 +247,7 @@ def parse_args():
     parser.add_argument("--hidden-size", type=int, default=None, help="defaults to the model's usual size")
     parser.add_argument("--num-updates", type=int, default=5)
     parser.add_argument("--episodes-per-update", type=int, default=None, help="defaults to the model's usual count")
+    parser.add_argument("--lr", type=float, default=1e-3, help="ignored when --optimizer=hf")
     parser.add_argument("--min-reward", type=float, default=150.0)
     parser.add_argument("--results-path", default="cartpole_results.json")
     parser.add_argument("--model-path", default="cartpole_model.pt")
@@ -269,6 +271,7 @@ def main():
         metrics=("loss", "reward"),
     )
     train_fn = train_adam if args.optimizer == "adam" else train_hf
+    train_kwargs = {"lr": args.lr} if args.optimizer == "adam" else {}
     avg_reward, _ = train_fn(
         model,
         device,
@@ -277,6 +280,7 @@ def main():
         live_plot=live_plot,
         results_path=args.results_path,
         model_path=args.model_path,
+        **train_kwargs,
     )
     print(f"average reward: {avg_reward:.1f}")
     assert avg_reward > args.min_reward, f"expected average reward > {args.min_reward:.0f}, got {avg_reward:.1f}"

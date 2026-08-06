@@ -156,7 +156,10 @@ def train_hf(
                     z = m(images)
                     return criterion(z, labels), z
 
-                diagnostics = optimizer.step(objective_fn)
+                # nn.RNN's cuDNN kernel has no double-backward support, which HFOptimizer's
+                # Gauss-Newton Hv-product requires; the generic (non-cuDNN) RNN path does.
+                with torch.backends.cudnn.flags(enabled=False):
+                    diagnostics = optimizer.step(objective_fn)
                 total_loss += diagnostics["loss_after"]
             avg_loss = total_loss / len(train_loader)
             accuracy = evaluate(model, test_loader, device)
