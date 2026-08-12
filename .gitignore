@@ -222,3 +222,5 @@ __marimo__/
 
 # Saved training results/model checkpoints/logs/figures/activity
 /results/
+
+docs/
