@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from models.common import get_device
+from models.common import get_device, scaled_recurrent_init_
 
 __all__ = ["BidirectionalRNN", "get_device"]
 
@@ -9,7 +9,14 @@ __all__ = ["BidirectionalRNN", "get_device"]
 class BidirectionalRNN(nn.Module):
     """Hand-rolled bidirectional Elman RNN: explicit forward/backward loops over nn.RNNCell."""
 
-    def __init__(self, input_size: int, hidden_size: int, output_size: int, output_mode: str = "last"):
+    def __init__(
+        self,
+        input_size: int,
+        hidden_size: int,
+        output_size: int,
+        output_mode: str = "last",
+        recurrent_gain: float = 1.4,
+    ):
         super().__init__()
         if output_mode not in ("last", "all"):
             raise ValueError(f"output_mode must be 'last' or 'all', got {output_mode!r}")
@@ -19,6 +26,8 @@ class BidirectionalRNN(nn.Module):
         self.input_proj = nn.Linear(input_size, hidden_size)
         self.fwd_cell = nn.RNNCell(hidden_size, hidden_size)
         self.bwd_cell = nn.RNNCell(hidden_size, hidden_size)
+        scaled_recurrent_init_(self.fwd_cell.weight_hh, recurrent_gain)
+        scaled_recurrent_init_(self.bwd_cell.weight_hh, recurrent_gain)
         self.output_proj = nn.Linear(hidden_size * 2, output_size)
 
     def forward(

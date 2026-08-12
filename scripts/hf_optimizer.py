@@ -152,10 +152,14 @@ class HFOptimizer:
         grad_flat = _flatten(grads).detach()
         b = -grad_flat
 
+        n = z.shape[0]
+
         def matvec(v_flat: torch.Tensor) -> torch.Tensor:
             v = _unflatten(v_flat.detach(), self.params)
             hv = gauss_newton_hvp(z, self.params, v, self.curvature)
-            return _flatten(hv).detach() + self.damping * v_flat
+            # gauss_newton_hvp sums over the batch dim; objective_fn's loss is mean-reduced,
+            # so Hv must be divided by N to match the gradient's scale.
+            return _flatten(hv).detach() / n + self.damping * v_flat
 
         def eval_fn(x_flat: torch.Tensor) -> float:
             new_loss, _ = self._probe(x_flat, objective_fn)

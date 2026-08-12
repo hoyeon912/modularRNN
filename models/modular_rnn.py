@@ -183,6 +183,22 @@ class ModularRNN(nn.Module):
             self.output_proj.weight.mul_(self.output_mask)
         self.output_proj.weight.register_hook(lambda grad: grad * self.output_mask)
 
+    def init_hidden(self, batch_size: int, device, dtype=torch.float32) -> torch.Tensor:
+        return torch.zeros(batch_size, self.hidden_size, device=device, dtype=dtype)
+
+    def step(self, x_t: torch.Tensor, h: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """One recurrent step: x_t (batch, input_size), h (batch, hidden_size) ->
+        (q_t, h_next). Equivalent to calling forward() on the sequence ending at x_t and
+        taking its last timestep, but without redoing every earlier timestep -- lets
+        rollouts carry hidden state forward instead of replaying the whole growing history
+        on every env step (which is O(T^2) and, with an expensive per-frame encoder in
+        front, prohibitively slow for long episodes)."""
+        ih, hh = self.cell.masked_weights()
+        h_next = self.cell.step(x_t, h, ih, hh)
+        masked_weight = self.output_proj.weight * self.output_mask
+        q_t = F.linear(h_next, masked_weight, self.output_proj.bias)
+        return q_t, h_next
+
     def forward(
         self, x: torch.Tensor, return_hidden: bool = False
     ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:

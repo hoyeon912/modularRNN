@@ -27,6 +27,7 @@
 
 - GPU accerlation
 - Pytorch
+- Launch all training/long-running runs fully detached (e.g. `nohup ... & disown`) so they keep running even if the SSH connection is lost. Verify detachment (PPID 1, SIGHUP ignored) before considering a run properly launched.
 
 ## Test
 

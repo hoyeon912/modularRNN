@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CartPole RNN Experiment Summary</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1f2328;
+    --fg-muted: #57606a;
+    --border: #d0d7de;
+    --card-bg: #f6f8fa;
+    --accent: #0969da;
+    --goal-line: #8250df;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d1117;
+      --fg: #e6edf3;
+      --fg-muted: #8b949e;
+      --border: #30363d;
+      --card-bg: #161b22;
+      --accent: #4493f8;
+      --goal-line: #a371f7;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d1117;
+    --fg: #e6edf3;
+    --fg-muted: #8b949e;
+    --border: #30363d;
+    --card-bg: #161b22;
+    --accent: #4493f8;
+    --goal-line: #a371f7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    margin: 0;
+    padding: 2.5rem 1.5rem 4rem;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin-bottom: 0.25rem; }
+  .subtitle { color: var(--fg-muted); margin-top: 0; margin-bottom: 1.75rem; font-size: 0.95rem; }
+  .kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+  }
+  .kpi {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.9rem 1rem;
+  }
+  .kpi .n { font-size: 1.6rem; font-weight: 600; }
+  .kpi .l { color: var(--fg-muted); font-size: 0.82rem; }
+  .findings {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.1rem 1.4rem;
+    margin-bottom: 2.25rem;
+  }
+  .findings h2 { margin-top: 0; font-size: 1.05rem; }
+  .findings ul { margin: 0.5rem 0 0; padding-left: 1.2rem; }
+  .findings li { margin-bottom: 0.55rem; }
+  section.family { margin-bottom: 2.5rem; }
+  section.family h2 {
+    font-size: 1.15rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.4rem;
+  }
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 720px; }
+  th, td { padding: 0.55rem 0.7rem; border-bottom: 1px solid var(--border); text-align: left; font-size: 0.88rem; }
+  th { color: var(--fg-muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.02em; }
+  td.tag { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 600; }
+  td.num { font-variant-numeric: tabular-nums; }
+  .status-pill {
+    display: inline-block;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--pill-color);
+    border: 1px solid var(--pill-color);
+    background: color-mix(in srgb, var(--pill-color) 12%, transparent);
+    white-space: nowrap;
+  }
+  .spark-line { stroke: var(--accent); stroke-width: 1.6; }
+  .goal-line { stroke: var(--goal-line); stroke-width: 1; stroke-dasharray: 3 2; opacity: 0.6; }
+  footer { color: var(--fg-muted); font-size: 0.8rem; margin-top: 2.5rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>CartPole Modular-RNN + HF Optimizer &mdash; Experiment Summary</h1>
+  <p class="subtitle">17 training runs across 4 model families, TD learning on CartPole-v1 with the Hessian-Free optimizer. Generated from raw training logs.</p>
+
+  <div class="kpis">
+    <div class="kpi"><div class="n">17</div><div class="l">total runs</div></div>
+    <div class="kpi"><div class="n" style="color:#1a7f37">4</div><div class="l">converged (reward 500 &times; 3)</div></div>
+    <div class="kpi"><div class="n" style="color:#cf222e">6</div><div class="l">collapsed (loss &rarr; 0)</div></div>
+    <div class="kpi"><div class="n" style="color:#9a6700">7</div><div class="l">stopped, no convergence</div></div>
+  </div>
+
+  <div class="findings">
+    <h2>Key findings</h2>
+    <ul>
+      <li><strong>Only the feature-style <code>modular_rnn</code> (raw 4-value CartPole state input) reliably solved the task</strong> &mdash; all 4 hyperparameter variants (a/b/c/d) hit reward&nbsp;500 for 3 consecutive checks within 1,352&ndash;2,359 updates.</li>
+      <li><strong>The CNN-pixel variant (<code>cnn_modular_rnn</code>) never converged</strong> across 7 runs and up to 36k updates. Several runs transiently peaked much higher than their final reward (e.g. <code>cnn_c_bigreplay</code> peaked 152.3, <code>cnn_b_slowsync</code> peaked 146.3) before regressing back toward baseline &mdash; learning was unstable rather than simply slow.</li>
+      <li><strong><code>simple_rnn</code> and <code>bidirectional_rnn</code> (non-modular baselines) collapsed in every attempt</strong> (6/6 runs): loss drops to exactly 0.0000 and reward flatlines near the minimum episode length (~9&ndash;10 steps). Two independent fixes were tried and both failed to prevent it long-term: (1) raising the HF optimizer's <code>damping_min</code> floor and slowing epsilon decay, and (2) adding a <code>ModularRNN</code>-style scaled recurrent-gain weight init (spectral radius &gt; 1) to counter PyTorch's default init contracting to a trivial fixed point.</li>
+      <li><strong>The <code>_v3</code> retune diagnosed the real trigger</strong>: loss is healthy and non-zero at update 1, then collapses to exactly 0.0000 right at the update where both <code>epsilon</code> and <code>damping</code> hit their floors simultaneously (~update 2000) &mdash; i.e. the moment exploration stops, the policy goes fully greedy on an undertrained Q-function, gets stuck on the same short failing trajectory every episode, and the TD error over identical deterministic episodes trivially collapses to zero. This points to a greedy-lock-in bug in the exploration/exploitation schedule rather than a pure initialization problem, and was not yet fixed when all experiments were stopped.</li>
+      <li>All 17 runs were manually stopped (not run to their full update budget) once this diagnosis was reached.</li>
+    </ul>
+  </div>
+
+  
+    <section class="family">
+      <h2>modular_rnn (feature-style, concrete)</h2>
+      <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Run</th>
+            <th>Updates (final / budget)</th>
+            <th>Peak reward</th>
+            <th>Final reward</th>
+            <th>Final loss</th>
+            <th>Status</th>
+            <th>Reward trend (line = 500 goal)</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+        <tr>
+          <td class="tag">a_baseline</td>
+          <td class="num">2,141 / 50,000</td>
+          <td class="num">500.0</td>
+          <td class="num">500.0</td>
+          <td class="num">3.4585</td>
+          <td><span class="status-pill" style="--pill-color:#1a7f37">CONVERGED</span></td>
+          <td><svg viewBox="0 0 260 56" width="260" height="56" class="spark" role="img" aria-label="reward trend">
+  <line x1="4" y1="4.0" x2="256" y2="4.0" class="goal-line" />
+  <path d="M 4.0,50.9 L 6.1,49.1 L 8.2,50.5 L 10.3,50.6 L 12.4,47.5 L 14.5,49.1 L 16.6,50.3 L 18.7,50.9 L 20.8,51.0 L 22.9,50.9 L 25.0,49.8 L 27.1,49.7 L 29.2,51.0 L 31.3,50.8 L 33.4,50.1 L 35.5,51.0 L 37.6,49.4 L 39.7,51.1 L 41.8,43.8 L 43.9,49.9 L 46.0,50.0 L 48.1,49.9 L 50.2,49.6 L 52.3,49.3 L 54.4,50.7 L 56.5,49.5 L 58.6,48.0 L 60.7,47.6 L 62.8,51.0 L 64.9,35.3 L 67.0,23.6 L 69.1,12.2 L 71.2,41.9 L 73.3,49.9 L 75.4,40.2 L 77.5,32.0 L 79.6,36.9 L 81.7,44.5 L 83.8,47.5 L 85.9,31.1 L 88.0,40.4 L 90.1,50.7 L 92.2,51.2 L 94.3,46.1 L 96.4,30.7 L 98.5,13.8 L 100.6,30.5 L 102.7,32.5 L 104.8,38.1 L 106.9,19.7 L 109.0,38.1 L 111.1,45.6 L 113.2,32.9 L 115.3,46.2 L 117.4,39.5 L 119.5,47.7 L 121.6,36.4 L 123.7,49.1 L 125.8,36.5 L 127.9,31.6 L 130.0,36.0 L 132.1,28.0 L 134.2,41.4 L 136.3,31.1 L 138.4,30.6 L 140.5,41.7 L 142.6,47.9 L 144.7,30.6 L 146.8,41.0 L 148.9,44.0 L 151.0,31.7 L 153.1,28.7 L 155.2,38.8 L 157.3,33.2 L 159.4,33.9 L 161.5,45.5 L 163.6,48.7 L 165.7,28.0 L 167.8,37.4 L 169.9,36.4 L 172.0,40.3 L 174.1,34.0 L 176.2,39.6 L 178.3,40.8 L 180.4,43.5 L 182.5,37.0 L 184.6,47.2 L 186.7,50.5 L 188.8,40.4 L 190.9,37.0 L 193.0,40.9 L 195.1,45.4 L 197.2,37.1 L 199.3,35.3 L 201.4,50.9 L 203.5,40.0 L 205.6,50.1 L 207.7,37.1 L 209.8,35.6 L 211.9,27.7 L 214.0,10.9 L 216.1,13.0 L 218.2,13.2 L 220.3,4.0 L 222.4,34.4 L 224.5,16.2 L 226.6,25.1 L 228.7,30.0 L 230.8,42.6 L 232.9,31.9 L 235.0,39.5 L 237.1,32.8 L 239.2,50.5 L 241.3,35.2 L 243.4,34.0 L 245.5,42.6 L 247.6,35.4 L 249.7,8.7 L 251.8,44.2 L 253.9,36.1 L 256.0,4.0" class="spark-line" fill="none" />
+</svg></td>
+        </tr>
+        <tr>
+          <td class="tag">b_slowsync</td>
+          <td class="num">2,087 / 50,000</td>
+          <td class="num">500.0</td>
+          <td class="num">500.0</td>
+          <td class="num">2.0285</td>
+          <td><span class="status-pill" style="--pill-color:#1a7f37">CONVERGED</span></td>
+          <td><svg viewBox="0 0 260 56" width="260" height="56" class="spark" role="img" aria-label="reward trend">
+  <line x1="4" y1="4.0" x2="256" y2="4.0" class="goal-line" />
+  <path d="M 4.0,51.1 L 6.1,50.5 L 8.2,51.0 L 10.3,50.9 L 12.4,49.9 L 14.5,48.4 L 16.6,51.0 L 18.7,50.4 L 20.8,50.3 L 22.9,51.1 L 25.0,51.1 L 27.1,51.1 L 29.2,50.9 L 31.3,49.5 L 33.4,50.3 L 35.5,50.0 L 37.6,48.7 L 39.7,50.8 L 41.8,51.1 L 43.9,49.9 L 46.0,50.9 L 48.1,51.0 L 50.2,51.0 L 52.3,50.8 L 54.4,50.1 L 56.5,48.0 L 58.6,50.8 L 60.7,50.1 L 62.8,50.9 L 64.9,50.8 L 67.0,48.8 L 69.1,48.9 L 71.2,49.5 L 73.3,50.5 L 75.4,51.0 L 77.5,49.4 L 79.6,48.7 L 81.7,49.1 L 83.8,40.0 L 85.9,45.2 L 88.0,44.6 L 90.1,48.3 L 92.2,34.9 L 94.3,46.1 L 96.4,47.3 L 98.5,50.4 L 100.6,50.2 L 102.7,44.8 L 104.8,38.6 L 106.9,41.1 L 109.0,51.0 L 111.1,49.8 L 113.2,47.4 L 115.3,31.0 L 117.4,23.7 L 119.5,43.3 L 121.6,46.6 L 123.7,51.0 L 125.8,43.0 L 127.9,47.1 L 130.0,44.7 L 132.1,47.0 L 134.2,44.2 L 136.3,50.4 L 138.4,39.7 L 140.5,43.4 L 142.6,48.4 L 144.7,46.5 L 146.8,50.5 L 148.9,46.9 L 151.0,49.6 L 153.1,38.5 L 155.2,46.9 L 157.3,18.6 L 159.4,48.2 L 161.5,47.3 L 163.6,46.2 L 165.7,44.6 L 167.8,46.0 L 169.9,31.9 L 172.0,51.1 L 174.1,49.9 L 176.2,20.1 L 178.3,13.9 L 180.4,30.4 L 182.5,34.6 L 184.6,44.4 L 186.7,37.9 L 188.8,41.8 L 190.9,45.3 L 193.0,48.9 L 195.1,46.8 L 197.2,50.7 L 199.3,50.8 L 201.4,48.8 L 203.5,39.7 L 205.6,48.2 L 207.7,49.0 L 209.8,25.5 L 211.9,28.1 L 214.0,40.1 L 216.1,16.0 L 218.2,26.8 L 220.3,36.7 L 222.4,39.2 L 224.5,34.4 L 226.6,41.9 L 228.7,47.5 L 230.8,50.0 L 232.9,42.9 L 235.0,47.5 L 237.1,50.6 L 239.2,49.2 L 241.3,50.9 L 243.4,47.7 L 245.5,37.2 L 247.6,49.5 L 249.7,33.0 L 251.8,39.0 L 253.9,34.8 L 256.0,4.0" class="spark-line" fill="none" />
+</svg></td>
+        </tr>
+        <tr>
+          <td class="tag">c_bigreplay</td>
+          <td class="num">1,352 / 50,000</td>
+          <td class="num">500.0</td>
+          <td class="num">500.0</td>
+          <td class="num">0.6690</td>
+          <td><span class="status-pill" style="--pill-color:#1a7f37">CONVERGED</span></td>
+          <td><svg viewBox="0 0 260 56" width="260" height="56" class="spark" role="img" aria-label="reward trend">
+  <line x1="4" y1="4.0" x2="256" y2="4.0" class="goal-line" />
+  <path d="M 4.0,50.8 L 6.1,50.7 L 8.2,50.6 L 10.3,50.6 L 12.4,49.2 L 14.5,50.3 L 16.6,50.5 L 18.7,51.1 L 20.8,49.8 L 22.9,49.7 L 25.0,49.5 L 27.1,48.3 L 29.2,49.3 L 31.3,50.1 L 33.4,50.9 L 35.5,48.8 L 37.6,50.7 L 39.7,51.1 L 41.8,50.9 L 43.9,50.1 L 46.0,50.0 L 48.1,48.9 L 50.2,48.9 L 52.3,51.0 L 54.4,51.0 L 56.5,50.6 L 58.6,50.7 L 60.7,50.7 L 62.8,47.5 L 64.9,50.0 L 67.0,50.3 L 69.1,49.0 L 71.2,50.8 L 73.3,47.5 L 75.4,39.8 L 77.5,48.7 L 79.6,48.0 L 81.7,49.2 L 83.8,48.7 L 85.9,51.0 L 88.0,49.5 L 90.1,25.1 L 92.2,49.0 L 94.3,42.0 L 96.4,29.7 L 98.5,31.4 L 100.6,33.1 L 102.7,29.7 L 104.8,25.5 L 106.9,21.8 L 109.0,32.6 L 111.1,30.1 L 113.2,45.8 L 115.3,24.6 L 117.4,45.6 L 119.5,31.1 L 121.6,20.7 L 123.7,42.8 L 125.8,17.4 L 127.9,22.4 L 130.0,38.7 L 132.1,40.2 L 134.2,36.4 L 136.3,44.8 L 138.4,20.4 L 140.5,19.2 L 142.6,47.1 L 144.7,37.8 L 146.8,10.2 L 148.9,19.5 L 151.0,31.2 L 153.1,50.1 L 155.2,50.2 L 157.3,49.6 L 159.4,50.5 L 161.5,7.2 L 163.6,32.3 L 165.7,44.8 L 167.8,38.4 L 169.9,29.1 L 172.0,10.7 L 174.1,38.9 L 176.2,44.7 L 178.3,31.7 L 180.4,40.3 L 182.5,44.2 L 184.6,43.5 L 186.7,40.4 L 188.8,33.6 L 190.9,15.6 L 193.0,16.4 L 195.1,25.2 L 197.2,13.9 L 199.3,29.8 L 201.4,36.8 L 203.5,33.2 L 205.6,36.8 L 207.7,42.0 L 209.8,39.5 L 211.9,38.7 L 214.0,37.5 L 216.1,37.4 L 218.2,41.3 L 220.3,38.6 L 222.4,32.0 L 224.5,35.2 L 226.6,38.7 L 228.7,37.1 L 230.8,33.8 L 232.9,29.0 L 235.0,24.1 L 237.1,30.9 L 239.2,20.6 L 241.3,41.5 L 243.4,38.0 L 245.5,4.0 L 247.6,4.8 L 249.7,12.0 L 251.8,13.5 L 253.9,4.0 L 256.0,4.0" class="spark-line" fill="none" />
+</svg></td>
+        </tr>
+        <tr>
+          <td class="tag">d_longexplore</td>
+          <td class="num">2,359 / 50,000</td>
+          <td class="num">500.0</td>
+          <td class="num">500.0</td>
+          <td class="num">5.1594</td>
+          <td><span class="status-pill" style="--pill-color:#1a7f37">CONVERGED</span></td>
+          <td><svg viewBox="0 0 260 56" width="260" height="56" class="spark" role="img" aria-label="reward trend">
+  <line x1="4" y1="4.0" x2="256" y2="4.0" class="goal-line" />
+  <path d="M 4.0,47.4 L 6.1,46.8 L 8.2,50.0 L 10.3,49.0 L 12.4,49.9 L 14.5,50.4 L 16.6,50.8 L 18.7,50.6 L 20.8,47.7 L 22.9,50.6 L 25.0,50.7 L 27.1,50.7 L 29.2,50.1 L 31.3,50.8 L 33.4,51.1 L 35.5,50.3 L 37.6,50.2 L 39.7,51.0 L 41.8,51.1 L 43.9,48.7 L 46.0,50.8 L 48.1,49.5 L 50.2,50.9 L 52.3,50.8 L 54.4,50.5 L 56.5,51.0 L 58.6,50.8 L 60.7,50.7 L 62.8,51.1 L 64.9,50.9 L 67.0,50.0 L 69.1,50.7 L 71.2,51.0 L 73.3,50.1 L 75.4,50.8 L 77.5,51.0 L 79.6,50.7 L 81.7,50.0 L 83.8,44.6 L 85.9,36.6 L 88.0,50.4 L 90.1,47.2 L 92.2,49.9 L 94.3,50.2 L 96.4,43.6 L 98.5,51.2 L 100.6,44.0 L 102.7,46.6 L 104.8,51.0 L 106.9,29.2 L 109.0,36.9 L 111.1,41.9 L 113.2,49.4 L 115.3,38.1 L 117.4,44.8 L 119.5,47.6 L 121.6,43.4 L 123.7,47.9 L 125.8,36.2 L 127.9,42.6 L 130.0,43.0 L 132.1,44.7 L 134.2,47.8 L 136.3,41.0 L 138.4,22.7 L 140.5,20.3 L 142.6,32.8 L 144.7,46.5 L 146.8,50.7 L 148.9,46.7 L 151.0,22.0 L 153.1,50.9 L 155.2,32.2 L 157.3,4.6 L 159.4,24.0 L 161.5,20.2 L 163.6,35.4 L 165.7,46.7 L 167.8,34.6 L 169.9,38.9 L 172.0,31.3 L 174.1,46.4 L 176.2,49.3 L 178.3,48.9 L 180.4,49.1 L 182.5,50.9 L 184.6,38.2 L 186.7,30.9 L 188.8,45.4 L 190.9,24.0 L 193.0,11.9 L 195.1,4.0 L 197.2,33.6 L 199.3,34.0 L 201.4,36.4 L 203.5,49.1 L 205.6,36.3 L 207.7,46.1 L 209.8,21.8 L 211.9,36.8 L 214.0,38.1 L 216.1,35.1 L 218.2,15.2 L 220.3,15.5 L 222.4,35.1 L 224.5,4.0 L 226.6,29.1 L 228.7,6.0 L 230.8,37.5 L 232.9,40.1 L 235.0,46.7 L 237.1,50.0 L 239.2,50.9 L 241.3,51.0 L 243.4,50.7 L 245.5,50.7 L 247.6,35.4 L 249.7,31.5 L 251.8,32.7 L 253.9,14.2 L 256.0,4.0" class="spark-line" fill="none" />
+</svg></td>
+        </tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+    <section class="family">
+      <h2>cnn_modular_rnn (CNN-style)</h2>
+      <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Run</th>
+            <th>Updates (final / budget)</th>
+            <th>Peak reward</th>
+            <th>Final reward</th>
+            <th>Final loss</th>
+            <th>Status</th>
+            <th>Reward trend (line = 500 goal)</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+        <tr>
+          <td class="tag">cnn_a</td>
+          <td class="num">16,565 / 50,000</td>
+          <td class="num">51.7</td>
+          <td class="num">15.3</td>
+          <td class="num">1.1513</td>
+          <td><span class="status-pill" style="--pill-color:#9a6700">STOPPED (no convergence)</span></td>
+          <td><svg viewBox="0 0 260 56" width="260" height="56" class="spark" role="img" aria-label="reward trend">
+  <line x1="4" y1="4.0" x2="256" y2="4.0" class="goal-line" />
+  <path d="M 4.0,50.9 L 6.1,51.2 L 8.2,50.9 L 10.3,49.7 L 12.4,49.8 L 14.5,50.2 L 16.6,50.7 L 18.7,50.8 L 20.8,49.2 L 22.9,50.9 L 25.0,50.9 L 27.1,50.5 L 29.2,50.3 L 31.3,50.9 L 33.4,51.0 L 35.5,50.7 L 37.6,51.1 L 39.7,51.1 L 41.8,50.2 L 43.9,49.9 L 46.0,48.7 L 48.1,50.9 L 50.2,50.1 L 52.3,50.4 L 54.4,51.0 L 56.5,50.4 L 58.6,50.1 L 60.7,50.0 L 62.8,50.3 L 64.9,50.1 L 67.0,50.1 L 69.1,49.6 L 71.2,50.7 L 73.3,50.6 L 75.4,50.9 L 77.5,50.3 L 79.6,50.8 L 81.7,50.4 L 83.8,50.9 L 85.9,50.5 L 88.0,50.4 L 90.1,51.1 L 92.2,50.3 L 94.3,47.4 L 96.4,50.1 L 98.5,50.2 L 100.6,50.0 L 102.7,49.7 L 104.8,50.3 L 106.9,49.3 L 109.0,50.5 L 111.1,49.7 L 113.2,51.1 L 115.3,49.0 L 117.4,50.5 L 119.5,50.8 L 121.6,49.9 L 123.7,50.2 L 125.8,50.3 L 127.9,50.1 L 130.0,50.4 L 132.1,50.3 L 134.2,50.4 L 136.3,50.2 L 138.4,50.2 L 140.5,50.7 L 142.6,49.9 L 144.7,49.6 L 146.8,51.0 L 148.9,51.2 L 151.0,49.4 L 153.1,50.8 L 155.2,49.8 L 157.3,49.5 L 159.4,50.5 L 161.5,50.1 L 163.6,50.5 L 165.7,50.4 L 167.8,49.6 L 169.9,50.6 L 172.0,50.0 L 174.1,50.6 L 176.2,51.1 L 178.3,50.1 L 180.4,49.5 L 182.5,50.4 L 184.6,49.5 L 186.7,50.9 L 188.8,50.5 L 190.9,51.0 L 193.0,50.2 L 195.1,49.6 L 197.2,50.1 L 199.3,49.4 L 201.4,49.8 L 203.5,50.3 L 205.6,50.4 L 207.7,49.2 L 209.8,50.7 L 211.9,50.8 L 214.0,50.9 L 216.1,49.5 L 218.2,49.9 L 220.3,49.6 L 222.4,49.9 L 224.5,50.8 L 226.6,50.7 L 228.7,49.6 L 230.8,50.3 L 232.9,50.9 L 235.0,49.8 L 237.1,51.1 L 239.2,50.4 L 241.3,50.7 L 243.4,50.8 L 245.5,49.9 L 247.6,50.5 L 249.7,49.8 L 251.8,50.1 L 253.9,50.8 L 256.0,50.5" class="spark-line" fill="none" />
+</svg></td>
+        </tr>
+        <tr>
+          <td class="tag">cnn_b</td>
+          <td class="num">14,083 / 50,000</td>
+          <td class="num">156.0</td>
+          <td class="num">19.7</td>
+          <td class="num">1.3895</td>
+          <td><span class="status-pill" style="--pill-color:#9a6700">STOPPED (no convergence)</span></td>
+          <td><svg viewBox="0 0 260 56" width="260" height="56" class="spark" role="img" aria-label="reward trend">
+  <line x1="4" y1="4.0" x2="256" y2="4.0" class="goal-line" />
+  <path d="M 4.0,50.8 L 6.1,50.8 L 8.2,50.3 L 10.3,50.8 L 12.4,49.4 L 14.5,50.9 L 16.6,50.8 L 18.7,51.0 L 20.8,49.2 L 22.9,50.8 L 25.0,48.9 L 27.1,50.8 L 29.2,50.1 L 31.3,49.4 L 33.4,45.4 L 35.5,47.1 L 37.6,48.6 L 39.7,49.4 L 41.8,48.3 L 43.9,49.1 L 46.0,49.3 L 48.1,47.4 L 50.2,48.1 L 52.3,47.1 L 54.4,47.3 L 56.5,47.3 L 58.6,48.2 L 60.7,48.1 L 62.8,50.8 L 64.9,49.3 L 67.0,50.3 L 69.1,47.8 L 71.2,44.5 L 73.3,48.3 L 75.4,50.3 L 77.5,50.0 L 79.6,49.7 L 81.7,47.9 L 83.8,47.6 L 85.9,49.0 L 88.0,47.8 L 90.1,50.1 L 92.2,49.8 L 94.3,47.2 L 96.4,49.3 L 98.5,49.2 L 100.6,47.9 L 102.7,48.1 L 104.8,44.6 L 106.9,51.0 L 109.0,46.5 L 111.1,47.1 L 113.2,47.6 L 115.3,49.1 L 117.4,51.0 L 119.5,50.3 L 121.6,49.4 L 123.7,47.4 L 125.8,49.5 L 127.9,47.0 L 130.0,49.2 L 132.1,45.9 L 134.2,48.3 L 136.3,48.7 L 138.4,46.6 L 140.5,50.5 L 142.6,50.6 L 144.7,46.9 L 146.8,51.1 L 148.9,51.1 L 151.0,47.1 L 153.1,49.2 L 155.2,47.9 L 157.3,50.8 L 159.4,49.9 L 161.5,49.0 L 163.6,46.8 L 165.7,50.5 L 167.8,50.1 L 169.9,50.7 L 172.0,49.0 L 174.1,49.5 L 176.2,50.9 L 178.3,51.1 L 180.4,50.0 L 182.5,48.8 L 184.6,50.1 L 186.7,49.9 L 188.8,49.7 L 190.9,49.1 L 193.0,50.1 L 195.1,50.8 L 197.2,50.6 L 199.3,49.5 L 201.4,44.3 L 203.5,50.3 L 205.6,50.0 L 207.7,50.3 L 209.8,49.9 L 211.9,49.4 L 214.0,50.6 L 216.1,50.1 L 218.2,50.1 L 220.3,49.8 L 222.4,50.6 L 224.5,50.5 L 226.6,49.8 L 228.7,50.5 L 230.8,51.1 L 232.9,50.2 L 235.0,48.3 L 237.1,46.7 L 239.2,51.0 L 241.3,51.1 L 243.4,50.5 L 245.5,50.8 L 247.6,47.0 L 249.7,50.2 L 251.8,50.0 L 253.9,51.0 L 256.0,50.1" class="spark-line" fill="none" />
+</svg></td>
+        </tr>
+        <tr>
+          <td class="tag">cnn_a_baseline</td>
+          <td class="num">32,198 / 50,000</td>
+          <td class="num">59.3</td>
+          <td class="num">10.7</td>
+          <td class="num">0.8161</td>
+          <td><span class="status-pill" style="--pill-color:#9a6700">STOPPED (no convergence)</span></td>
+          <td><svg viewBox="0 0 260 56" width="260" height="56" class="spark" role="img" aria-label="reward trend">
+  <line x1="4" y1="4.0" x2="256" y2="4.0" class="goal-line" />
+  <path d="M 4.0,50.8 L 6.1,50.9 L 8.2,50.8 L 10.3,51.2 L 12.4,50.3 L 14.5,51.1 L 16.6,50.9 L 18.7,50.7 L 20.8,51.1 L 22.9,49.3 L 25.0,50.8 L 27.1,50.9 L 29.2,49.8 L 31.3,49.7 L 33.4,51.1 L 35.5,51.1 L 37.6,50.8 L 39.7,51.1 L 41.8,50.0 L 43.9,50.1 L 46.0,51.1 L 48.1,50.8 L 50.2,49.9 L 52.3,51.1 L 54.4,50.6 L 56.5,50.2 L 58.6,50.8 L 60.7,50.5 L 62.8,50.3 L 64.9,50.1 L 67.0,50.4 L 69.1,49.9 L 71.2,49.7 L 73.3,50.2 L 75.4,50.8 L 77.5,50.0 L 79.6,50.3 L 81.7,50.6 L 83.8,49.7 L 85.9,49.9 L 88.0,50.5 L 90.1,51.0 L 92.2,50.8 L 94.3,50.6 L 96.4,50.1 L 98.5,50.7 L 100.6,50.3 L 102.7,50.5 L 104.8,50.0 L 106.9,50.1 L 109.0,50.8 L 111.1,50.3 L 113.2,49.7 L 115.3,50.8 L 117.4,50.9 L 119.5,50.3 L 121.6,49.9 L 123.7,50.8 L 125.8,50.8 L 127.9,50.9 L 130.0,49.9 L 132.1,51.0 L 134.2,50.7 L 136.3,50.5 L 138.4,50.1 L 140.5,50.7 L 142.6,51.1 L 144.7,50.9 L 146.8,50.9 L 148.9,50.3 L 151.0,50.5 L 153.1,50.6 L 155.2,51.1 L 157.3,50.6 L 159.4,49.9 L 161.5,50.5 L 163.6,50.7 L 165.7,50.7 L 167.8,50.7 L 169.9,49.4 L 172.0,50.6 L 174.1,50.8 L 176.2,51.1 L 178.3,50.7 L 180.4,49.5 L 182.5,50.7 L 184.6,50.8 L 186.7,51.0 L 188.8,50.5 L 190.9,51.2 L 193.0,50.1 L 195.1,50.5 L 197.2,50.3 L 199.3,51.1 L 201.4,50.9 L 203.5,50.0 L 205.6,50.8 L 207.7,50.8 L 209.8,51.1 L 211.9,51.1 L 214.0,50.3 L 216.1,50.6 L 218.2,50.7 L 220.3,51.0 L 222.4,50.2 L 224.5,50.9 L 226.6,49.7 L 228.7,50.2 L 230.8,50.9 L 232.9,51.0 L 235.0,50.9 L 237.1,50.3 L 239.2,50.8 L 241.3,51.0 L 243.4,50.3 L 245.5,50.3 L 247.6,50.7 L 249.7,50.4 L 251.8,50.1 L 253.9,50.7 L 256.0,51.0" class="spark-line" fill="none" />
+</svg></td>
+        </tr>
+        <tr>
+          <td class="tag">cnn_b_slowsync</td>
+          <td class="num">27,695 / 50,000</td>
+          <td class="num">146.3</td>
+          <td class="num">9.3</td>
+          <td class="num">1.8797</td>
+          <td><span class="status-pill" style="--pill-color:#9a6700">STOPPED (no convergence)</span></td>
+          <td><svg viewBox="0 0 260 56" width="260" height="56" class="spark" role="img" aria-label="reward trend">
+  <line x1="4" y1="4.0" x2="256" y2="4.0" class="goal-line" />
+  <path d="M 4.0,50.7 L 6.1,50.6 L 8.2,49.8 L 10.3,50.3 L 12.4,49.4 L 14.5,51.0 L 16.6,49.1 L 18.7,48.0 L 20.8,50.2 L 22.9,50.0 L 25.0,50.2 L 27.1,49.8 L 29.2,50.4 L 31.3,50.8 L 33.4,49.2 L 35.5,50.4 L 37.6,50.6 L 39.7,48.2 L 41.8,50.2 L 43.9,50.0 L 46.0,50.9 L 48.1,49.1 L 50.2,50.3 L 52.3,50.3 L 54.4,50.9 L 56.5,51.1 L 58.6,50.4 L 60.7,49.6 L 62.8,51.1 L 64.9,50.9 L 67.0,51.0 L 69.1,49.9 L 71.2,51.1 L 73.3,50.5 L 75.4,49.9 L 77.5,50.1 L 79.6,50.8 L 81.7,50.8 L 83.8,51.0 L 85.9,50.8 L 88.0,51.1 L 90.1,50.5 L 92.2,50.6 L 94.3,50.8 L 96.4,50.2 L 98.5,48.8 L 100.6,51.0 L 102.7,49.7 L 104.8,49.4 L 106.9,51.1 L 109.0,49.7 L 111.1,49.8 L 113.2,50.2 L 115.3,50.9 L 117.4,50.4 L 119.5,50.1 L 121.6,50.1 L 123.7,49.1 L 125.8,50.4 L 127.9,49.3 L 130.0,50.3 L 132.1,50.8 L 134.2,50.2 L 136.3,49.6 L 138.4,50.4 L 140.5,50.2 L 142.6,50.1 L 144.7,49.3 L 146.8,49.2 L 148.9,50.1 L 151.0,49.4 L 153.1,49.9 L 155.2,51.1 L 157.3,51.0 L 159.4,50.3 L 161.5,49.8 L 163.6,49.7 L 165.7,50.1 L 167.8,49.7 L 169.9,50.1 L 172.0,50.2 L 174.1,50.3 L 176.2,49.9 L 178.3,50.5 L 180.4,50.6 L 182.5,50.8 L 184.6,49.9 L 186.7,51.0 L 188.8,49.8 L 190.9,50.8 L 193.0,49.9 L 195.1,49.9 L 197.2,50.3 L 199.3,50.3 L 201.4,49.9 L 203.5,50.9 L 205.6,49.9 L 207.7,49.9 L 209.8,49.7 L 211.9,50.7 L 214.0,49.1 L 216.1,50.3 L 218.2,50.4 L 220.3,51.1 L 222.4,50.2 L 224.5,50.7 L 226.6,50.4 L 228.7,49.4 L 230.8,50.4 L 232.9,51.1 L 235.0,49.3 L 237.1,49.8 L 239.2,50.0 L 241.3,50.1 L 243.4,50.4 L 245.5,49.8 L 247.6,50.1 L 249.7,49.9 L 251.8,49.3 L 253.9,50.4 L 256.0,51.1" class="spark-line" fill="none" />
+</svg></td>
+        </tr>
+        <tr>
+          <td class="tag">cnn_c_bigreplay</td>
+          <td class="num">9,779 / 50,000</td>
+          <td class="num">152.3</td>
+          <td class="num">76.3</td>
+          <td class="num">1.7551</td>
+          <td><span class="status-pill" style="--pill-color:#9a6700">STOPPED (no convergence)</span></td>
+          <td><svg viewBox="0 0 260 56" width="260" height="56" class="spark" role="img" aria-label="reward trend">
+  <line x1="4" y1="4.0" x2="256" y2="4.0" class="goal-line" />
+  <path d="M 4.0,50.9 L 6.1,50.9 L 8.2,50.8 L 10.3,50.8 L 12.4,50.9 L 14.5,50.8 L 16.6,50.8 L 18.7,50.0 L 20.8,49.1 L 22.9,49.5 L 25.0,50.5 L 27.1,50.0 L 29.2,49.8 L 31.3,51.1 L 33.4,50.7 L 35.5,50.9 L 37.6,49.6 L 39.7,50.5 L 41.8,48.7 L 43.9,48.7 L 46.0,49.1 L 48.1,47.3 L 50.2,48.6 L 52.3,51.0 L 54.4,46.7 L 56.5,49.7 L 58.6,50.0 L 60.7,49.4 L 62.8,49.9 L 64.9,48.0 L 67.0,48.8 L 69.1,49.8 L 71.2,49.4 L 73.3,48.2 L 75.4,48.2 L 77.5,49.3 L 79.6,48.7 L 81.7,50.1 L 83.8,49.9 L 85.9,47.9 L 88.0,50.3 L 90.1,49.2 L 92.2,47.9 L 94.3,50.5 L 96.4,50.2 L 98.5,48.5 L 100.6,50.2 L 102.7,47.5 L 104.8,49.7 L 106.9,48.5 L 109.0,48.3 L 111.1,45.6 L 113.2,50.9 L 115.3,47.6 L 117.4,48.7 L 119.5,49.0 L 121.6,49.3 L 123.7,51.0 L 125.8,49.5 L 127.9,48.4 L 130.0,46.4 L 132.1,48.8 L 134.2,47.3 L 136.3,50.5 L 138.4,50.6 L 140.5,49.4 L 142.6,49.6 L 144.7,50.1 L 146.8,48.6 L 148.9,49.3 L 151.0,49.8 L 153.1,50.2 L 155.2,49.5 L 157.3,51.1 L 159.4,50.2 L 161.5,49.9 L 163.6,48.1 L 165.7,50.2 L 167.8,51.1 L 169.9,50.6 L 172.0,47.7 L 174.1,48.8 L 176.2,49.6 L 178.3,46.7 L 180.4,47.4 L 182.5,49.2 L 184.6,47.4 L 186.7,49.0 L 188.8,49.9 L 190.9,50.8 L 193.0,49.3 L 195.1,47.9 L 197.2,49.9 L 199.3,49.6 L 201.4,49.9 L 203.5,49.4 L 205.6,44.8 L 207.7,47.2 L 209.8,50.3 L 211.9,49.6 L 214.0,49.9 L 216.1,50.3 L 218.2,49.5 L 220.3,50.5 L 222.4,47.7 L 224.5,49.6 L 226.6,51.0 L 228.7,48.5 L 230.8,49.9 L 232.9,49.6 L 235.0,48.7 L 237.1,48.0 L 239.2,48.3 L 241.3,49.7 L 243.4,50.1 L 245.5,50.0 L 247.6,50.8 L 249.7,49.7 L 251.8,49.5 L 253.9,48.9 L 256.0,44.7" class="spark-line" fill="none" />
+</svg></td>
+        </tr>
+        <tr>
+          <td class="tag">cnn_d_longexplore</td>
+          <td class="num">34,092 / 50,000</td>
+          <td class="num">52.7</td>
+          <td class="num">19.3</td>
+          <td class="num">1.3368</td>
+          <td><span class="status-pill" style="--pill-color:#9a6700">STOPPED (no convergence)</span></td>
+          <td><svg viewBox="0 0 260 56" width="260" height="56" class="spark" role="img" aria-label="reward trend">
+  <line x1="4" y1="4.0" x2="256" y2="4.0" class="goal-line" />
+  <path d="M 4.0,47.3 L 6.1,49.4 L 8.2,51.0 L 10.3,50.6 L 12.4,50.5 L 14.5,51.0 L 16.6,50.6 L 18.7,50.9 L 20.8,51.0 L 22.9,50.5 L 25.0,50.6 L 27.1,49.8 L 29.2,50.2 L 31.3,49.9 L 33.4,49.7 L 35.5,49.8 L 37.6,49.8 L 39.7,51.0 L 41.8,50.8 L 43.9,50.8 L 46.0,50.1 L 48.1,51.1 L 50.2,50.4 L 52.3,50.9 L 54.4,51.0 L 56.5,51.1 L 58.6,49.4 L 60.7,50.2 L 62.8,50.4 L 64.9,50.9 L 67.0,50.1 L 69.1,49.7 L 71.2,50.9 L 73.3,49.9 L 75.4,50.2 L 77.5,50.8 L 79.6,50.9 L 81.7,49.8 L 83.8,51.2 L 85.9,50.0 L 88.0,51.1 L 90.1,50.4 L 92.2,50.7 L 94.3,50.9 L 96.4,50.9 L 98.5,50.9 L 100.6,50.7 L 102.7,51.1 L 104.8,50.4 L 106.9,51.1 L 109.0,50.1 L 111.1,50.5 L 113.2,50.7 L 115.3,50.3 L 117.4,51.1 L 119.5,50.7 L 121.6,51.0 L 123.7,50.7 L 125.8,50.4 L 127.9,49.3 L 130.0,50.8 L 132.1,51.1 L 134.2,51.1 L 136.3,51.1 L 138.4,51.0 L 140.5,50.5 L 142.6,50.8 L 144.7,50.1 L 146.8,50.3 L 148.9,51.1 L 151.0,50.4 L 153.1,51.0 L 155.2,50.3 L 157.3,50.3 L 159.4,51.1 L 161.5,49.7 L 163.6,50.3 L 165.7,50.6 L 167.8,50.5 L 169.9,51.2 L 172.0,50.1 L 174.1,50.1 L 176.2,50.4 L 178.3,50.6 L 180.4,50.6 L 182.5,50.1 L 184.6,50.4 L 186.7,50.7 L 188.8,50.8 L 190.9,50.8 L 193.0,51.0 L 195.1,50.3 L 197.2,50.4 L 199.3,50.4 L 201.4,50.9 L 203.5,50.5 L 205.6,51.1 L 207.7,50.9 L 209.8,50.8 L 211.9,50.7 L 214.0,51.0 L 216.1,50.3 L 218.2,50.4 L 220.3,50.5 L 222.4,50.2 L 224.5,51.1 L 226.6,50.8 L 228.7,49.6 L 230.8,50.3 L 232.9,50.9 L 235.0,51.2 L 237.1,50.8 L 239.2,50.9 L 241.3,51.1 L 243.4,50.2 L 245.5,51.1 L 247.6,51.1 L 249.7,49.9 L 251.8,49.6 L 253.9,50.8 L 256.0,50.1" class="spark-line" fill="none" />
+</svg></td>
+        </tr>
+        <tr>
+          <td class="tag">cnn_a_v2</td>
+          <td class="num">36,324 / 50,000</td>
+          <td class="num">66.7</td>
+          <td class="num">12.7</td>
+          <td class="num">0.6767</td>
+          <td><span class="status-pill" style="--pill-color:#9a6700">STOPPED (no convergence)</span></td>
+          <td><svg viewBox="0 0 260 56" width="260" height="56" class="spark" role="img" aria-label="reward trend">
+  <line x1="4" y1="4.0" x2="256" y2="4.0" class="goal-line" />
+  <path d="M 4.0,50.9 L 6.1,51.1 L 8.2,50.5 L 10.3,50.6 L 12.4,51.2 L 14.5,50.5 L 16.6,50.6 L 18.7,50.4 L 20.8,50.9 L 22.9,50.8 L 25.0,50.1 L 27.1,50.8 L 29.2,50.6 L 31.3,50.9 L 33.4,49.4 L 35.5,50.1 L 37.6,50.2 L 39.7,50.3 L 41.8,50.4 L 43.9,51.2 L 46.0,50.4 L 48.1,49.5 L 50.2,50.3 L 52.3,50.7 L 54.4,50.5 L 56.5,49.2 L 58.6,50.4 L 60.7,50.6 L 62.8,50.6 L 64.9,50.1 L 67.0,50.8 L 69.1,50.1 L 71.2,50.9 L 73.3,49.6 L 75.4,51.1 L 77.5,51.1 L 79.6,50.1 L 81.7,50.9 L 83.8,50.4 L 85.9,50.7 L 88.0,50.9 L 90.1,50.2 L 92.2,51.1 L 94.3,50.8 L 96.4,50.5 L 98.5,51.0 L 100.6,49.5 L 102.7,51.0 L 104.8,50.9 L 106.9,50.9 L 109.0,51.1 L 111.1,50.3 L 113.2,50.3 L 115.3,50.4 L 117.4,50.3 L 119.5,50.8 L 121.6,50.4 L 123.7,50.8 L 125.8,51.0 L 127.9,50.0 L 130.0,51.1 L 132.1,50.9 L 134.2,50.4 L 136.3,50.6 L 138.4,50.3 L 140.5,51.1 L 142.6,50.8 L 144.7,50.4 L 146.8,50.7 L 148.9,49.3 L 151.0,50.8 L 153.1,51.0 L 155.2,51.1 L 157.3,50.9 L 159.4,50.4 L 161.5,50.9 L 163.6,50.8 L 165.7,50.7 L 167.8,50.1 L 169.9,51.1 L 172.0,50.6 L 174.1,50.1 L 176.2,50.2 L 178.3,50.9 L 180.4,51.1 L 182.5,50.7 L 184.6,51.0 L 186.7,50.7 L 188.8,50.3 L 190.9,51.0 L 193.0,50.7 L 195.1,50.5 L 197.2,50.6 L 199.3,50.8 L 201.4,51.1 L 203.5,50.1 L 205.6,51.0 L 207.7,50.7 L 209.8,50.5 L 211.9,50.8 L 214.0,51.1 L 216.1,50.8 L 218.2,51.1 L 220.3,50.9 L 222.4,50.1 L 224.5,50.9 L 226.6,50.6 L 228.7,50.9 L 230.8,51.0 L 232.9,51.1 L 235.0,50.9 L 237.1,51.2 L 239.2,51.1 L 241.3,50.6 L 243.4,51.1 L 245.5,50.4 L 247.6,51.1 L 249.7,50.4 L 251.8,50.5 L 253.9,50.3 L 256.0,50.8" class="spark-line" fill="none" />
+</svg></td>
+        </tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+    <section class="family">
+      <h2>simple_rnn (non-modular baseline)</h2>
+      <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Run</th>
+            <th>Updates (final / budget)</th>
+            <th>Peak reward</th>
+            <th>Final reward</th>
+            <th>Final loss</th>
+            <th>Status</th>
+            <th>Reward trend (line = 500 goal)</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+        <tr>
+          <td class="tag">simple_rnn</td>
+          <td class="num">18,600 / 50,000</td>
+          <td class="num">10.7</td>
+          <td class="num">9.3</td>
+          <td class="num">0.0000</td>
+          <td><span class="status-pill" style="--pill-color:#cf222e">COLLAPSED</span></td>
+          <td><svg viewBox="0 0 260 56" width="260" height="56" class="spark" role="img" aria-label="reward trend">
+  <line x1="4" y1="4.0" x2="256" y2="4.0" class="goal-line" />
+  <path d="M 4.0,51.1 L 6.1,51.1 L 8.2,51.0 L 10.3,51.2 L 12.4,51.1 L 14.5,51.0 L 16.6,51.1 L 18.7,51.1 L 20.8,51.0 L 22.9,51.1 L 25.0,51.1 L 27.1,51.1 L 29.2,51.1 L 31.3,51.1 L 33.4,51.1 L 35.5,51.2 L 37.6,51.1 L 39.7,51.1 L 41.8,51.1 L 43.9,51.1 L 46.0,51.1 L 48.1,51.1 L 50.2,51.1 L 52.3,51.1 L 54.4,51.1 L 56.5,51.1 L 58.6,51.1 L 60.7,51.1 L 62.8,51.1 L 64.9,51.1 L 67.0,51.1 L 69.1,51.1 L 71.2,51.2 L 73.3,51.2 L 75.4,51.0 L 77.5,51.1 L 79.6,51.1 L 81.7,51.0 L 83.8,51.1 L 85.9,51.2 L 88.0,51.1 L 90.1,51.1 L 92.2,51.0 L 94.3,51.1 L 96.4,51.1 L 98.5,51.0 L 100.6,51.1 L 102.7,51.1 L 104.8,51.1 L 106.9,51.2 L 109.0,51.1 L 111.1,51.1 L 113.2,51.1 L 115.3,51.2 L 117.4,51.1 L 119.5,51.1 L 121.6,51.2 L 123.7,51.1 L 125.8,51.1 L 127.9,51.1 L 130.0,51.0 L 132.1,51.1 L 134.2,51.1 L 136.3,51.1 L 138.4,51.1 L 140.5,51.1 L 142.6,51.1 L 144.7,51.1 L 146.8,51.1 L 148.9,51.1 L 151.0,51.1 L 153.1,51.0 L 155.2,51.2 L 157.3,51.1 L 159.4,51.1 L 161.5,51.1 L 163.6,51.1 L 165.7,51.1 L 167.8,51.1 L 169.9,51.1 L 172.0,51.1 L 174.1,51.1 L 176.2,51.0 L 178.3,51.1 L 180.4,51.1 L 182.5,51.0 L 184.6,51.1 L 186.7,51.1 L 188.8,51.1 L 190.9,51.1 L 193.0,51.1 L 195.1,51.2 L 197.2,51.1 L 199.3,51.1 L 201.4,51.2 L 203.5,51.1 L 205.6,51.0 L 207.7,51.2 L 209.8,51.1 L 211.9,51.2 L 214.0,51.1 L 216.1,51.1 L 218.2,51.1 L 220.3,51.2 L 222.4,51.1 L 224.5,51.1 L 226.6,51.1 L 228.7,51.1 L 230.8,51.2 L 232.9,51.1 L 235.0,51.1 L 237.1,51.1 L 239.2,51.1 L 241.3,51.1 L 243.4,51.1 L 245.5,51.1 L 247.6,51.1 L 249.7,51.1 L 251.8,51.1 L 253.9,51.1 L 256.0,51.1" class="spark-line" fill="none" />
+</svg></td>
+        </tr>
+        <tr>
+          <td class="tag">simple_rnn_v2</td>
+          <td class="num">10,117 / 50,000</td>
+          <td class="num">126.7</td>
+          <td class="num">10.0</td>
+          <td class="num">0.0000</td>
+          <td><span class="status-pill" style="--pill-color:#cf222e">COLLAPSED</span></td>
+          <td><svg viewBox="0 0 260 56" width="260" height="56" class="spark" role="img" aria-label="reward trend">
+  <line x1="4" y1="4.0" x2="256" y2="4.0" class="goal-line" />
+  <path d="M 4.0,50.9 L 6.1,51.2 L 8.2,51.0 L 10.3,51.2 L 12.4,50.9 L 14.5,51.1 L 16.6,51.0 L 18.7,51.1 L 20.8,51.1 L 22.9,51.0 L 25.0,51.1 L 27.1,51.0 L 29.2,51.2 L 31.3,51.1 L 33.4,51.1 L 35.5,51.1 L 37.6,51.0 L 39.7,51.1 L 41.8,51.0 L 43.9,51.0 L 46.0,51.1 L 48.1,51.2 L 50.2,51.1 L 52.3,51.1 L 54.4,51.1 L 56.5,51.1 L 58.6,51.1 L 60.7,51.1 L 62.8,51.1 L 64.9,51.1 L 67.0,51.1 L 69.1,51.1 L 71.2,51.1 L 73.3,51.1 L 75.4,51.0 L 77.5,51.1 L 79.6,51.1 L 81.7,51.1 L 83.8,51.1 L 85.9,51.1 L 88.0,51.1 L 90.1,51.2 L 92.2,51.1 L 94.3,51.2 L 96.4,51.1 L 98.5,51.1 L 100.6,51.1 L 102.7,51.1 L 104.8,51.1 L 106.9,51.1 L 109.0,51.1 L 111.1,51.1 L 113.2,51.2 L 115.3,51.1 L 117.4,51.0 L 119.5,51.0 L 121.6,51.0 L 123.7,51.1 L 125.8,51.1 L 127.9,51.1 L 130.0,51.1 L 132.1,51.1 L 134.2,51.1 L 136.3,51.1 L 138.4,51.1 L 140.5,51.1 L 142.6,51.2 L 144.7,51.1 L 146.8,51.1 L 148.9,51.1 L 151.0,51.1 L 153.1,51.2 L 155.2,51.1 L 157.3,51.1 L 159.4,51.1 L 161.5,51.1 L 163.6,51.1 L 165.7,51.1 L 167.8,51.1 L 169.9,51.1 L 172.0,51.0 L 174.1,51.1 L 176.2,51.1 L 178.3,51.1 L 180.4,51.1 L 182.5,51.2 L 184.6,51.1 L 186.7,51.1 L 188.8,51.0 L 190.9,51.2 L 193.0,51.1 L 195.1,51.1 L 197.2,51.1 L 199.3,51.1 L 201.4,51.1 L 203.5,51.1 L 205.6,51.1 L 207.7,51.1 L 209.8,51.1 L 211.9,51.1 L 214.0,51.1 L 216.1,51.0 L 218.2,51.1 L 220.3,51.2 L 222.4,51.0 L 224.5,51.1 L 226.6,51.2 L 228.7,51.2 L 230.8,51.0 L 232.9,51.1 L 235.0,51.1 L 237.1,51.1 L 239.2,51.1 L 241.3,51.1 L 243.4,51.1 L 245.5,51.1 L 247.6,51.1 L 249.7,51.1 L 251.8,51.1 L 253.9,51.1 L 256.0,51.0" class="spark-line" fill="none" />
+</svg></td>
+        </tr>
+        <tr>
+          <td class="tag">simple_rnn_v3</td>
+          <td class="num">24,947 / 50,000</td>
+          <td class="num">53.0</td>
+          <td class="num">9.3</td>
+          <td class="num">0.0000</td>
+          <td><span class="status-pill" style="--pill-color:#cf222e">COLLAPSED</span></td>
+          <td><svg viewBox="0 0 260 56" width="260" height="56" class="spark" role="img" aria-label="reward trend">
+  <line x1="4" y1="4.0" x2="256" y2="4.0" class="goal-line" />
+  <path d="M 4.0,51.1 L 6.1,51.1 L 8.2,51.0 L 10.3,51.1 L 12.4,51.1 L 14.5,51.1 L 16.6,51.1 L 18.7,51.1 L 20.8,51.1 L 22.9,51.1 L 25.0,51.1 L 27.1,51.1 L 29.2,51.1 L 31.3,51.0 L 33.4,51.1 L 35.5,51.0 L 37.6,51.1 L 39.7,51.1 L 41.8,51.1 L 43.9,51.1 L 46.0,51.1 L 48.1,51.2 L 50.2,51.1 L 52.3,51.1 L 54.4,51.1 L 56.5,51.1 L 58.6,51.1 L 60.7,51.1 L 62.8,51.0 L 64.9,51.0 L 67.0,51.1 L 69.1,51.1 L 71.2,51.0 L 73.3,51.1 L 75.4,51.2 L 77.5,51.0 L 79.6,51.1 L 81.7,51.1 L 83.8,51.1 L 85.9,51.2 L 88.0,51.1 L 90.1,51.0 L 92.2,51.1 L 94.3,51.1 L 96.4,51.1 L 98.5,51.1 L 100.6,51.1 L 102.7,51.1 L 104.8,51.1 L 106.9,51.1 L 109.0,51.1 L 111.1,51.1 L 113.2,51.1 L 115.3,51.1 L 117.4,51.1 L 119.5,51.0 L 121.6,51.1 L 123.7,51.1 L 125.8,51.1 L 127.9,51.1 L 130.0,51.1 L 132.1,51.2 L 134.2,51.1 L 136.3,51.1 L 138.4,51.2 L 140.5,51.1 L 142.6,51.1 L 144.7,51.1 L 146.8,51.0 L 148.9,51.1 L 151.0,51.0 L 153.1,51.1 L 155.2,51.1 L 157.3,51.0 L 159.4,51.1 L 161.5,51.1 L 163.6,51.1 L 165.7,51.1 L 167.8,51.2 L 169.9,51.0 L 172.0,51.2 L 174.1,51.1 L 176.2,51.1 L 178.3,51.1 L 180.4,51.0 L 182.5,51.0 L 184.6,51.1 L 186.7,51.1 L 188.8,51.1 L 190.9,51.1 L 193.0,51.2 L 195.1,51.1 L 197.2,51.1 L 199.3,51.1 L 201.4,51.1 L 203.5,51.1 L 205.6,51.1 L 207.7,51.1 L 209.8,51.0 L 211.9,51.1 L 214.0,51.1 L 216.1,51.1 L 218.2,51.1 L 220.3,51.1 L 222.4,51.1 L 224.5,51.1 L 226.6,51.2 L 228.7,51.1 L 230.8,51.1 L 232.9,51.1 L 235.0,51.1 L 237.1,51.1 L 239.2,51.2 L 241.3,51.0 L 243.4,51.2 L 245.5,51.1 L 247.6,51.1 L 249.7,51.1 L 251.8,51.1 L 253.9,51.1 L 256.0,51.1" class="spark-line" fill="none" />
+</svg></td>
+        </tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+    <section class="family">
+      <h2>bidirectional_rnn (non-modular baseline)</h2>
+      <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Run</th>
+            <th>Updates (final / budget)</th>
+            <th>Peak reward</th>
+            <th>Final reward</th>
+            <th>Final loss</th>
+            <th>Status</th>
+            <th>Reward trend (line = 500 goal)</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+        <tr>
+          <td class="tag">bidirectional_rnn</td>
+          <td class="num">16,151 / 50,000</td>
+          <td class="num">42.3</td>
+          <td class="num">9.3</td>
+          <td class="num">0.0000</td>
+          <td><span class="status-pill" style="--pill-color:#cf222e">COLLAPSED</span></td>
+          <td><svg viewBox="0 0 260 56" width="260" height="56" class="spark" role="img" aria-label="reward trend">
+  <line x1="4" y1="4.0" x2="256" y2="4.0" class="goal-line" />
+  <path d="M 4.0,50.7 L 6.1,51.0 L 8.2,51.1 L 10.3,51.2 L 12.4,51.1 L 14.5,51.1 L 16.6,51.1 L 18.7,51.1 L 20.8,51.1 L 22.9,51.2 L 25.0,51.1 L 27.1,51.1 L 29.2,51.0 L 31.3,51.1 L 33.4,51.1 L 35.5,51.1 L 37.6,51.2 L 39.7,51.1 L 41.8,51.1 L 43.9,51.1 L 46.0,51.0 L 48.1,51.0 L 50.2,51.1 L 52.3,51.1 L 54.4,51.2 L 56.5,51.0 L 58.6,51.1 L 60.7,51.2 L 62.8,51.0 L 64.9,51.1 L 67.0,51.2 L 69.1,51.1 L 71.2,51.0 L 73.3,51.1 L 75.4,51.0 L 77.5,51.0 L 79.6,51.1 L 81.7,51.1 L 83.8,51.2 L 85.9,51.1 L 88.0,51.1 L 90.1,51.1 L 92.2,51.1 L 94.3,51.0 L 96.4,51.0 L 98.5,51.2 L 100.6,51.1 L 102.7,51.1 L 104.8,51.1 L 106.9,51.1 L 109.0,51.1 L 111.1,51.1 L 113.2,51.0 L 115.3,51.1 L 117.4,51.2 L 119.5,51.0 L 121.6,51.0 L 123.7,51.1 L 125.8,51.0 L 127.9,51.1 L 130.0,51.1 L 132.1,51.1 L 134.2,51.1 L 136.3,51.1 L 138.4,51.2 L 140.5,51.1 L 142.6,51.0 L 144.7,51.1 L 146.8,51.1 L 148.9,51.2 L 151.0,51.1 L 153.1,51.0 L 155.2,51.1 L 157.3,51.1 L 159.4,51.1 L 161.5,51.1 L 163.6,51.1 L 165.7,51.1 L 167.8,51.2 L 169.9,51.0 L 172.0,51.1 L 174.1,51.0 L 176.2,51.1 L 178.3,51.2 L 180.4,51.1 L 182.5,51.1 L 184.6,51.1 L 186.7,51.1 L 188.8,51.1 L 190.9,51.1 L 193.0,51.1 L 195.1,51.2 L 197.2,51.1 L 199.3,51.0 L 201.4,51.1 L 203.5,51.1 L 205.6,51.1 L 207.7,51.1 L 209.8,51.1 L 211.9,51.2 L 214.0,51.1 L 216.1,51.1 L 218.2,51.1 L 220.3,51.2 L 222.4,51.1 L 224.5,51.2 L 226.6,51.0 L 228.7,51.1 L 230.8,51.2 L 232.9,51.1 L 235.0,51.1 L 237.1,51.1 L 239.2,51.1 L 241.3,51.1 L 243.4,51.1 L 245.5,51.1 L 247.6,51.2 L 249.7,51.0 L 251.8,51.0 L 253.9,51.2 L 256.0,51.1" class="spark-line" fill="none" />
+</svg></td>
+        </tr>
+        <tr>
+          <td class="tag">bidirectional_rnn_v2</td>
+          <td class="num">7,831 / 50,000</td>
+          <td class="num">102.7</td>
+          <td class="num">9.7</td>
+          <td class="num">0.0000</td>
+          <td><span class="status-pill" style="--pill-color:#cf222e">COLLAPSED</span></td>
+          <td><svg viewBox="0 0 260 56" width="260" height="56" class="spark" role="img" aria-label="reward trend">
+  <line x1="4" y1="4.0" x2="256" y2="4.0" class="goal-line" />
+  <path d="M 4.0,51.1 L 6.1,51.1 L 8.2,51.1 L 10.3,51.1 L 12.4,51.1 L 14.5,51.1 L 16.6,51.0 L 18.7,51.1 L 20.8,51.1 L 22.9,51.1 L 25.0,51.1 L 27.1,51.1 L 29.2,51.1 L 31.3,51.1 L 33.4,51.1 L 35.5,51.0 L 37.6,51.0 L 39.7,51.1 L 41.8,51.1 L 43.9,51.1 L 46.0,51.1 L 48.1,51.1 L 50.2,51.0 L 52.3,51.1 L 54.4,51.1 L 56.5,51.2 L 58.6,51.0 L 60.7,51.2 L 62.8,51.1 L 64.9,51.1 L 67.0,51.1 L 69.1,51.2 L 71.2,51.1 L 73.3,51.2 L 75.4,51.1 L 77.5,51.2 L 79.6,51.1 L 81.7,51.1 L 83.8,51.1 L 85.9,51.0 L 88.0,51.0 L 90.1,51.1 L 92.2,51.2 L 94.3,51.2 L 96.4,51.1 L 98.5,51.1 L 100.6,51.1 L 102.7,51.1 L 104.8,51.1 L 106.9,51.2 L 109.0,51.1 L 111.1,51.1 L 113.2,51.1 L 115.3,51.1 L 117.4,51.1 L 119.5,51.1 L 121.6,51.0 L 123.7,51.1 L 125.8,51.0 L 127.9,51.1 L 130.0,51.1 L 132.1,51.1 L 134.2,51.1 L 136.3,51.1 L 138.4,51.1 L 140.5,51.1 L 142.6,51.1 L 144.7,51.1 L 146.8,51.1 L 148.9,51.1 L 151.0,51.1 L 153.1,51.1 L 155.2,51.1 L 157.3,51.2 L 159.4,51.1 L 161.5,51.1 L 163.6,51.1 L 165.7,51.2 L 167.8,51.1 L 169.9,51.2 L 172.0,51.1 L 174.1,51.1 L 176.2,51.2 L 178.3,51.1 L 180.4,51.1 L 182.5,51.1 L 184.6,51.1 L 186.7,51.1 L 188.8,51.2 L 190.9,51.1 L 193.0,51.1 L 195.1,51.1 L 197.2,51.1 L 199.3,51.1 L 201.4,51.2 L 203.5,51.1 L 205.6,51.0 L 207.7,51.1 L 209.8,51.1 L 211.9,51.1 L 214.0,51.2 L 216.1,51.1 L 218.2,51.1 L 220.3,51.1 L 222.4,51.1 L 224.5,51.2 L 226.6,51.1 L 228.7,51.1 L 230.8,51.1 L 232.9,51.1 L 235.0,51.1 L 237.1,51.0 L 239.2,51.1 L 241.3,51.2 L 243.4,51.1 L 245.5,51.0 L 247.6,51.1 L 249.7,51.1 L 251.8,51.0 L 253.9,51.1 L 256.0,51.1" class="spark-line" fill="none" />
+</svg></td>
+        </tr>
+        <tr>
+          <td class="tag">bidirectional_rnn_v3</td>
+          <td class="num">20,743 / 50,000</td>
+          <td class="num">16.3</td>
+          <td class="num">9.3</td>
+          <td class="num">0.0000</td>
+          <td><span class="status-pill" style="--pill-color:#cf222e">COLLAPSED</span></td>
+          <td><svg viewBox="0 0 260 56" width="260" height="56" class="spark" role="img" aria-label="reward trend">
+  <line x1="4" y1="4.0" x2="256" y2="4.0" class="goal-line" />
+  <path d="M 4.0,51.1 L 6.1,51.1 L 8.2,51.0 L 10.3,51.1 L 12.4,51.1 L 14.5,51.0 L 16.6,51.2 L 18.7,51.1 L 20.8,51.1 L 22.9,51.1 L 25.0,51.1 L 27.1,51.1 L 29.2,51.2 L 31.3,51.1 L 33.4,51.0 L 35.5,51.2 L 37.6,51.0 L 39.7,51.1 L 41.8,51.1 L 43.9,51.1 L 46.0,51.1 L 48.1,51.2 L 50.2,51.1 L 52.3,51.1 L 54.4,51.1 L 56.5,51.1 L 58.6,51.1 L 60.7,51.1 L 62.8,51.1 L 64.9,51.1 L 67.0,51.0 L 69.1,51.1 L 71.2,51.1 L 73.3,51.1 L 75.4,51.1 L 77.5,51.0 L 79.6,51.0 L 81.7,51.1 L 83.8,51.1 L 85.9,51.1 L 88.0,51.1 L 90.1,51.0 L 92.2,51.1 L 94.3,51.1 L 96.4,51.1 L 98.5,51.1 L 100.6,51.1 L 102.7,51.1 L 104.8,51.1 L 106.9,51.1 L 109.0,51.1 L 111.1,51.2 L 113.2,51.0 L 115.3,51.2 L 117.4,51.1 L 119.5,51.1 L 121.6,51.0 L 123.7,51.1 L 125.8,51.1 L 127.9,51.2 L 130.0,51.1 L 132.1,51.2 L 134.2,51.1 L 136.3,51.1 L 138.4,51.1 L 140.5,51.1 L 142.6,51.0 L 144.7,51.1 L 146.8,51.1 L 148.9,51.1 L 151.0,51.0 L 153.1,51.1 L 155.2,51.2 L 157.3,51.1 L 159.4,51.0 L 161.5,51.2 L 163.6,51.1 L 165.7,51.1 L 167.8,51.1 L 169.9,51.0 L 172.0,51.1 L 174.1,51.1 L 176.2,51.1 L 178.3,51.0 L 180.4,51.1 L 182.5,51.2 L 184.6,51.1 L 186.7,51.1 L 188.8,51.2 L 190.9,51.1 L 193.0,51.0 L 195.1,51.1 L 197.2,51.1 L 199.3,51.0 L 201.4,51.1 L 203.5,51.1 L 205.6,51.1 L 207.7,51.0 L 209.8,51.1 L 211.9,51.1 L 214.0,51.1 L 216.1,51.1 L 218.2,51.1 L 220.3,51.0 L 222.4,51.2 L 224.5,51.1 L 226.6,51.1 L 228.7,51.1 L 230.8,51.0 L 232.9,51.1 L 235.0,51.1 L 237.1,51.1 L 239.2,51.1 L 241.3,51.1 L 243.4,51.1 L 245.5,51.0 L 247.6,51.1 L 249.7,51.1 L 251.8,51.1 L 253.9,51.0 L 256.0,51.1" class="spark-line" fill="none" />
+</svg></td>
+        </tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+
+  <footer>Report generated from training logs in the scratchpad experiment directories. "Peak reward" is the single best reward value seen at any point in the run, which for unstable runs can be well above the final reward.</footer>
+</div>
+</body>
+</html>
