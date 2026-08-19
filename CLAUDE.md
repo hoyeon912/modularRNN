@@ -28,6 +28,7 @@
 - GPU accerlation
 - Pytorch
 - Launch all training/long-running runs fully detached (e.g. `nohup ... & disown`) so they keep running even if the SSH connection is lost. Verify detachment (PPID 1, SIGHUP ignored) before considering a run properly launched.
+- `nohup`/`disown` alone is not enough: if the user account doesn't have systemd lingering enabled, logind kills the *entire* user session scope (including PPID-1, SIGHUP-ignoring processes) the moment the last login session ends -- this silently killed every running job on 2026-08-12 with no error in any log. Check `loginctl show-user $(whoami) | grep Linger` and run `loginctl enable-linger $(whoami)` if it says `no`, before trusting any run to survive disconnection.
 
 ## Test
 
