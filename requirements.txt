@@ -4,3 +4,12 @@ gymnasium
 numpy
 pytest
 matplotlib
+# LunarLander (Box2D) support. Plain `gymnasium[box2d]` fails here: it pulls upstream
+# `pygame`, which has no prebuilt wheel for this Python version and fails to build from
+# source without system SDL dev headers (same root cause CLAUDE.md notes for CartPole's
+# renderer). pygame-ce is a drop-in replacement (same `import pygame`) with a prebuilt wheel;
+# box2d-py needs `swig` on PATH and `--no-build-isolation` to build:
+#   pip install swig && PATH="$(pwd)/.venv/bin:$PATH" pip install box2d-py --no-build-isolation
+swig
+pygame-ce
+box2d-py

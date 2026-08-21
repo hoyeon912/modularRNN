@@ -1,0 +1,9 @@
+{
+  "solved": false,
+  "solved_at_episode": null,
+  "best_streak": 0,
+  "max_reward": 397,
+  "mean_reward_last_50": 25.36,
+  "episodes_run": 5000,
+  "elapsed_seconds": 543.2761118412018
+}

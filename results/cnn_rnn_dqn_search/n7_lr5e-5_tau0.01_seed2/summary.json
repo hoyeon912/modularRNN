@@ -1,0 +1,11 @@
+{
+  "solved": true,
+  "solved_at_episode": 2850,
+  "best_eval_mean_reward": 500.0,
+  "peak_window_mean": 294.7333333333333,
+  "peak_window_std": 112.90286315207648,
+  "max_reward": 500,
+  "mean_reward_last_50": 72.78,
+  "episodes_run": 30000,
+  "elapsed_seconds": 15667.285292863846
+}

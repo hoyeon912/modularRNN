@@ -1,0 +1,6 @@
+{
+  "architecture": "CNN-RNN-DQN (pixels + RNNCell head)",
+  "episodes_run": 5000,
+  "final_eval_mean_reward": -140.66259900811806,
+  "best_eval_mean_reward": -79.8867934386639
+}

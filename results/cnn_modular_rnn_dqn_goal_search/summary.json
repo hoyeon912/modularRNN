@@ -1,0 +1,90 @@
+[
+  {
+    "name": "td_h150",
+    "kind": "td",
+    "rnn_hidden_size": 150,
+    "solved": false,
+    "solved_at_episode": null,
+    "best_eval_mean_reward": 56.4,
+    "final_eval_mean_reward": 36.4,
+    "trend_last_quarter_minus_first_quarter": 14.075999999999997,
+    "trained_steps": 5000
+  },
+  {
+    "name": "td_h900",
+    "kind": "td",
+    "rnn_hidden_size": 900,
+    "solved": false,
+    "solved_at_episode": null,
+    "best_eval_mean_reward": 50.6,
+    "final_eval_mean_reward": 31.2,
+    "trend_last_quarter_minus_first_quarter": 0.879999999999999,
+    "trained_steps": 5000
+  },
+  {
+    "name": "td_h300",
+    "kind": "td",
+    "rnn_hidden_size": 300,
+    "solved": false,
+    "solved_at_episode": null,
+    "best_eval_mean_reward": 43.8,
+    "final_eval_mean_reward": 22.4,
+    "trend_last_quarter_minus_first_quarter": 4.788,
+    "trained_steps": 5000
+  },
+  {
+    "name": "td_h600",
+    "kind": "td",
+    "rnn_hidden_size": 600,
+    "solved": false,
+    "solved_at_episode": null,
+    "best_eval_mean_reward": 42.4,
+    "final_eval_mean_reward": 39.0,
+    "trend_last_quarter_minus_first_quarter": 3.936,
+    "trained_steps": 5000
+  },
+  {
+    "name": "reinforce_h300",
+    "kind": "reinforce",
+    "rnn_hidden_size": 300,
+    "solved": false,
+    "solved_at_update": null,
+    "best_eval_mean_reward": 42.4,
+    "final_eval_mean_reward": 38.0,
+    "trend_last_quarter_minus_first_quarter": 8.32,
+    "trained_steps": 500
+  },
+  {
+    "name": "reinforce_h150",
+    "kind": "reinforce",
+    "rnn_hidden_size": 150,
+    "solved": false,
+    "solved_at_update": null,
+    "best_eval_mean_reward": 37.6,
+    "final_eval_mean_reward": 16.2,
+    "trend_last_quarter_minus_first_quarter": -3.240000000000002,
+    "trained_steps": 500
+  },
+  {
+    "name": "reinforce_h600",
+    "kind": "reinforce",
+    "rnn_hidden_size": 600,
+    "solved": false,
+    "solved_at_update": null,
+    "best_eval_mean_reward": 36.8,
+    "final_eval_mean_reward": 21.8,
+    "trend_last_quarter_minus_first_quarter": 6.280000000000001,
+    "trained_steps": 500
+  },
+  {
+    "name": "reinforce_h900",
+    "kind": "reinforce",
+    "rnn_hidden_size": 900,
+    "solved": false,
+    "solved_at_update": null,
+    "best_eval_mean_reward": 30.4,
+    "final_eval_mean_reward": 30.4,
+    "trend_last_quarter_minus_first_quarter": 0.08000000000000185,
+    "trained_steps": 500
+  }
+]

@@ -1,0 +1,7 @@
+{
+  "architecture": "DQN (vector-state MLP)",
+  "seed": 1,
+  "episodes_run": 120,
+  "final_eval_mean_reward": 206.5064266846649,
+  "best_eval_mean_reward": 206.5064266846649
+}

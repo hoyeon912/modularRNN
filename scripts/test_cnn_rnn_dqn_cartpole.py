@@ -239,6 +239,7 @@ def train_dqn_recurrent(
     lr_decay_every: int | None = None,
     lr_decay_factor: float = 0.5,
     n_step: int = 1,
+    save_best_path: str | None = None,
 ) -> tuple[list[int], list[dict]]:
     """CNNRNNDQN counterpart of test_dqn_cartpole.train_dqn -- same algorithm (Double DQN,
     n-step returns, LR decay, decoupled greedy evaluation), but threads hidden state through
@@ -251,7 +252,15 @@ def train_dqn_recurrent(
     hidden state at that point, and the flushed transitions all reuse the hidden state from
     the episode's final step (same simplifying assumption as the plain state case: this only
     matters when the episode ended via truncation rather than genuine termination, since a
-    None next_state masks the bootstrap term -- and the value it would multiply -- entirely)."""
+    None next_state masks the bootstrap term -- and the value it would multiply -- entirely).
+
+    DQN's live weights are not guaranteed to stay at their best-ever performance: a policy
+    that reaches eval_mean_reward=500 can still regress afterward (Q-value error grows in
+    the rare near-optimal states a policy only starts visiting once it's already good,
+    destabilizing what it just learned -- the same moving-target problem this project's
+    Double-Q fix addresses, just not eliminated by it). When `save_best_path` is given, the
+    policy network's state_dict is written there every time an eval beats the previous best,
+    so the *reported* result is deployable and stable even when live training isn't."""
     n_actions = env.action_space.n
     in_channels = frame_stack
     gamma_n = gamma**n_step
@@ -278,6 +287,7 @@ def train_dqn_recurrent(
     memory = RecurrentReplayMemory(memory_capacity)
 
     steps_done = 0
+    best_eval_mean_reward = float("-inf")
     episode_durations = []
     history = []
     for ep in range(num_episodes):
@@ -337,6 +347,9 @@ def train_dqn_recurrent(
         if eval_every is not None and (ep + 1) % eval_every == 0:
             eval_durations = evaluate_greedy_recurrent(policy_net, device, image_size, frame_stack, num_episodes=eval_episodes)
             eval_mean_reward = sum(eval_durations) / len(eval_durations)
+            if save_best_path is not None and eval_mean_reward > best_eval_mean_reward:
+                torch.save(policy_net.state_dict(), save_best_path)
+            best_eval_mean_reward = max(best_eval_mean_reward, eval_mean_reward)
 
         history.append(
             {
@@ -575,3 +588,37 @@ def test_train_dqn_recurrent_stops_early_when_solved():
     assert len(history) == 1
     assert history[0]["eval_mean_reward"] is not None
     assert history[0]["eval_mean_reward"] > 0
+
+
+def test_train_dqn_recurrent_saves_best_checkpoint(tmp_path):
+    # solved_mean_reward=0 makes the very first eval simultaneously the "solved" trigger
+    # AND a new best (since best starts at -inf) -- checks a checkpoint file lands on disk
+    # and that it actually contains this policy_net's weights, not an untrained/mismatched
+    # state_dict, by loading it into a fresh net of the same shape and comparing tensors.
+    torch.manual_seed(0)
+    random.seed(0)
+    device = get_device()
+    env = gym.make("CartPole-v1")
+    checkpoint_path = str(tmp_path / "best.pt")
+    try:
+        train_dqn_recurrent(
+            env,
+            device,
+            num_episodes=5,
+            image_size=32,
+            rnn_hidden_size=16,
+            batch_size=16,
+            memory_capacity=500,
+            eps_decay=200,
+            verbose=False,
+            eval_every=1,
+            eval_episodes=2,
+            save_best_path=checkpoint_path,
+        )
+    finally:
+        env.close()
+
+    assert Path(checkpoint_path).exists()
+    state_dict = torch.load(checkpoint_path, map_location=device, weights_only=True)
+    net = CNNRNNDQN(4, 2, image_size=32, rnn_hidden_size=16)
+    net.load_state_dict(state_dict)  # raises if shapes/keys don't match a real checkpoint

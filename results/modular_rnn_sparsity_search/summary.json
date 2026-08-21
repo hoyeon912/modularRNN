@@ -1,0 +1,74 @@
+[
+  {
+    "name": "sparsity0.1",
+    "near_module_sparsity": 0.1,
+    "solved_at_update": null,
+    "best_reward": 105.33333333333333,
+    "final_reward": 82.33333333333333,
+    "trend_last_quarter_minus_first_quarter": 42.82666666666667,
+    "trained_updates": 300
+  },
+  {
+    "name": "sparsity0.2",
+    "near_module_sparsity": 0.2,
+    "solved_at_update": null,
+    "best_reward": 88.33333333333333,
+    "final_reward": 55.333333333333336,
+    "trend_last_quarter_minus_first_quarter": 4.004444444444445,
+    "trained_updates": 300
+  },
+  {
+    "name": "sparsity0.3",
+    "near_module_sparsity": 0.3,
+    "solved_at_update": null,
+    "best_reward": 154.0,
+    "final_reward": 46.333333333333336,
+    "trend_last_quarter_minus_first_quarter": 25.564444444444447,
+    "trained_updates": 300
+  },
+  {
+    "name": "sparsity0.4",
+    "near_module_sparsity": 0.4,
+    "solved_at_update": null,
+    "best_reward": 137.0,
+    "final_reward": 73.0,
+    "trend_last_quarter_minus_first_quarter": 29.080000000000002,
+    "trained_updates": 300
+  },
+  {
+    "name": "sparsity0.5",
+    "near_module_sparsity": 0.5,
+    "solved_at_update": null,
+    "best_reward": 133.66666666666666,
+    "final_reward": 59.666666666666664,
+    "trend_last_quarter_minus_first_quarter": 38.195555555555565,
+    "trained_updates": 300
+  },
+  {
+    "name": "sparsity0.6",
+    "near_module_sparsity": 0.6,
+    "solved_at_update": null,
+    "best_reward": 159.33333333333334,
+    "final_reward": 58.666666666666664,
+    "trend_last_quarter_minus_first_quarter": 35.48444444444445,
+    "trained_updates": 300
+  },
+  {
+    "name": "sparsity0.8",
+    "near_module_sparsity": 0.8,
+    "solved_at_update": null,
+    "best_reward": 101.33333333333333,
+    "final_reward": 41.333333333333336,
+    "trend_last_quarter_minus_first_quarter": 9.426666666666662,
+    "trained_updates": 300
+  },
+  {
+    "name": "sparsity1.0",
+    "near_module_sparsity": 1.0,
+    "solved_at_update": null,
+    "best_reward": 120.33333333333333,
+    "final_reward": 48.0,
+    "trend_last_quarter_minus_first_quarter": 20.186666666666664,
+    "trained_updates": 300
+  }
+]
