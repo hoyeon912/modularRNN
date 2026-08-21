@@ -1,0 +1,50 @@
+[
+  {
+    "name": "pretrained_finetune_h600",
+    "rnn_hidden_size": 600,
+    "freeze_encoder": false,
+    "solved": false,
+    "solved_at_update": null,
+    "best_eval_mean_reward": 300.0,
+    "final_eval_mean_reward": 23.0,
+    "trend_last_quarter_minus_first_quarter": -73.46000000000001,
+    "first_breakout_update_over_100": 300,
+    "trained_updates": 8000
+  },
+  {
+    "name": "pretrained_frozen_h600",
+    "rnn_hidden_size": 600,
+    "freeze_encoder": true,
+    "solved": false,
+    "solved_at_update": null,
+    "best_eval_mean_reward": 254.2,
+    "final_eval_mean_reward": 150.4,
+    "trend_last_quarter_minus_first_quarter": 82.83,
+    "first_breakout_update_over_100": 400,
+    "trained_updates": 8000
+  },
+  {
+    "name": "pretrained_finetune_h300",
+    "rnn_hidden_size": 300,
+    "freeze_encoder": false,
+    "solved": false,
+    "solved_at_update": null,
+    "best_eval_mean_reward": 207.4,
+    "final_eval_mean_reward": 43.2,
+    "trend_last_quarter_minus_first_quarter": -33.894999999999996,
+    "first_breakout_update_over_100": 500,
+    "trained_updates": 8000
+  },
+  {
+    "name": "pretrained_frozen_h300",
+    "rnn_hidden_size": 300,
+    "freeze_encoder": true,
+    "solved": false,
+    "solved_at_update": null,
+    "best_eval_mean_reward": 160.2,
+    "final_eval_mean_reward": 160.2,
+    "trend_last_quarter_minus_first_quarter": 35.93499999999999,
+    "first_breakout_update_over_100": 650,
+    "trained_updates": 8000
+  }
+]

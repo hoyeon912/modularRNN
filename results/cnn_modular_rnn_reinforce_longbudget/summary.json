@@ -1,0 +1,42 @@
+[
+  {
+    "name": "reinforce_longbudget_h600",
+    "rnn_hidden_size": 600,
+    "solved": false,
+    "solved_at_update": null,
+    "best_eval_mean_reward": 319.8,
+    "final_eval_mean_reward": 126.4,
+    "trend_last_quarter_minus_first_quarter": 127.96000000000001,
+    "trained_updates": 8000
+  },
+  {
+    "name": "reinforce_longbudget_h300",
+    "rnn_hidden_size": 300,
+    "solved": false,
+    "solved_at_update": null,
+    "best_eval_mean_reward": 125.2,
+    "final_eval_mean_reward": 85.6,
+    "trend_last_quarter_minus_first_quarter": 34.395,
+    "trained_updates": 8000
+  },
+  {
+    "name": "reinforce_longbudget_h900",
+    "rnn_hidden_size": 900,
+    "solved": false,
+    "solved_at_update": null,
+    "best_eval_mean_reward": 61.2,
+    "final_eval_mean_reward": 32.8,
+    "trend_last_quarter_minus_first_quarter": 17.419999999999998,
+    "trained_updates": 8000
+  },
+  {
+    "name": "reinforce_longbudget_h150",
+    "rnn_hidden_size": 150,
+    "solved": false,
+    "solved_at_update": null,
+    "best_eval_mean_reward": 56.6,
+    "final_eval_mean_reward": 28.8,
+    "trend_last_quarter_minus_first_quarter": 15.015,
+    "trained_updates": 8000
+  }
+]

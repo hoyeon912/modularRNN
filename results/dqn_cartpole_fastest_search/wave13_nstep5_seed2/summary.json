@@ -1,0 +1,9 @@
+{
+  "solved": true,
+  "solved_at_episode": 26000,
+  "best_eval_mean_reward": 498.4,
+  "max_reward": 500,
+  "mean_reward_last_50": 404.92,
+  "episodes_run": 26000,
+  "elapsed_seconds": 17557.84369468689
+}

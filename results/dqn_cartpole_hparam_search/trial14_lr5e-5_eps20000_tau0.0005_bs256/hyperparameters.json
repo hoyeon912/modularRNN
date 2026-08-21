@@ -1,0 +1,11 @@
+{
+  "lr": 5e-05,
+  "eps_decay": 20000.0,
+  "tau": 0.0005,
+  "batch_size": 256,
+  "gamma": 0.99,
+  "image_size": 64,
+  "num_episodes": 1000,
+  "memory_capacity": 10000,
+  "results_dir": "/NHNHOME/WORKSPACE/0526050010_AA/modularRNN/results/dqn_cartpole_hparam_search/trial14_lr5e-5_eps20000_tau0.0005_bs256"
+}

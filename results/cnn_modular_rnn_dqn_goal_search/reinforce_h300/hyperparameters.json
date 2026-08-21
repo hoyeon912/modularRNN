@@ -1,0 +1,17 @@
+{
+  "image_size": 64,
+  "near_module_sparsity": 0.1,
+  "cnn_feature_dim": 32,
+  "frame_stack": 4,
+  "gamma": 0.99,
+  "lr": 0.001,
+  "entropy_coef": 0.01,
+  "num_updates": 500,
+  "episodes_per_update": 8,
+  "eval_every": 25,
+  "eval_episodes": 5,
+  "solved_mean_reward": 495.0,
+  "seed": 0,
+  "rnn_hidden_size": 300,
+  "results_dir": "/NHNHOME/WORKSPACE/0526050010_AA/modularRNN/results/cnn_modular_rnn_dqn_goal_search/reinforce_h300"
+}

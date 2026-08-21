@@ -1,0 +1,31 @@
+{
+  "image_size": 64,
+  "hidden_sizes": [],
+  "near_module_sparsity": 0.1,
+  "recurrent_gain": 1.4,
+  "input_gain": 1.0,
+  "conv_channels": [
+    16,
+    32,
+    32
+  ],
+  "frame_stack": 4,
+  "gamma": 0.99,
+  "eps_start": 0.9,
+  "eps_end": 0.05,
+  "eps_decay": 1000,
+  "tau": 0.005,
+  "lr": 0.0001,
+  "batch_size": 128,
+  "memory_capacity": 10000,
+  "num_episodes": 5000,
+  "eval_every": 25,
+  "eval_episodes": 5,
+  "solved_mean_reward": 495.0,
+  "lr_decay_every": null,
+  "lr_decay_factor": 0.5,
+  "n_step": 7,
+  "seed": 0,
+  "rnn_hidden_size": 900,
+  "results_dir": "/NHNHOME/WORKSPACE/0526050010_AA/modularRNN/results/cnn_modular_rnn_dqn_goal_search/td_h900"
+}

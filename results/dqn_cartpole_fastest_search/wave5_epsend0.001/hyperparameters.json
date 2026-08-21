@@ -1,0 +1,20 @@
+{
+  "lr": 0.0001,
+  "eps_decay": 2000.0,
+  "eps_end": 0.001,
+  "tau": 0.001,
+  "batch_size": 128,
+  "hidden_sizes": [
+    128
+  ],
+  "frame_stack": 4,
+  "gamma": 0.99,
+  "image_size": 64,
+  "num_episodes": 100000,
+  "memory_capacity": 10000,
+  "seed": 0,
+  "eval_every": 25,
+  "eval_episodes": 5,
+  "solved_mean_reward": 490.0,
+  "results_dir": "/NHNHOME/WORKSPACE/0526050010_AA/modularRNN/results/dqn_cartpole_fastest_search/wave5_epsend0.001"
+}

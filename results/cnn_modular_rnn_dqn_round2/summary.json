@@ -1,0 +1,82 @@
+[
+  {
+    "name": "control_n7_tau005",
+    "kind": "control",
+    "solved_at_episode": null,
+    "post_solve_solved_rate": null,
+    "best_eval_mean_reward": 402.0,
+    "final_eval_mean_reward": 167.8,
+    "trend_last_quarter_minus_first_quarter": 120.096,
+    "trained_episodes": 5000
+  },
+  {
+    "name": "control_n3_tau001",
+    "kind": "control",
+    "solved_at_episode": null,
+    "post_solve_solved_rate": null,
+    "best_eval_mean_reward": 270.8,
+    "final_eval_mean_reward": 170.6,
+    "trend_last_quarter_minus_first_quarter": 41.196,
+    "trained_episodes": 5000
+  },
+  {
+    "name": "control_n3_tau005",
+    "kind": "control",
+    "solved_at_episode": null,
+    "post_solve_solved_rate": null,
+    "best_eval_mean_reward": 264.8,
+    "final_eval_mean_reward": 172.2,
+    "trend_last_quarter_minus_first_quarter": 42.17200000000001,
+    "trained_episodes": 5000
+  },
+  {
+    "name": "control_n1_tau005",
+    "kind": "control",
+    "solved_at_episode": null,
+    "post_solve_solved_rate": null,
+    "best_eval_mean_reward": 134.6,
+    "final_eval_mean_reward": 85.0,
+    "trend_last_quarter_minus_first_quarter": 16.716,
+    "trained_episodes": 5000
+  },
+  {
+    "name": "modular_gain1.4_baseline",
+    "kind": "modular",
+    "solved_at_episode": null,
+    "post_solve_solved_rate": null,
+    "best_eval_mean_reward": 40.0,
+    "final_eval_mean_reward": 21.6,
+    "trend_last_quarter_minus_first_quarter": 3.596,
+    "trained_episodes": 5000
+  },
+  {
+    "name": "modular_gain1.0",
+    "kind": "modular",
+    "solved_at_episode": null,
+    "post_solve_solved_rate": null,
+    "best_eval_mean_reward": 38.4,
+    "final_eval_mean_reward": 19.2,
+    "trend_last_quarter_minus_first_quarter": 0.5360000000000014,
+    "trained_episodes": 5000
+  },
+  {
+    "name": "modular_gain0.8",
+    "kind": "modular",
+    "solved_at_episode": null,
+    "post_solve_solved_rate": null,
+    "best_eval_mean_reward": 28.4,
+    "final_eval_mean_reward": 13.6,
+    "trend_last_quarter_minus_first_quarter": 1.064,
+    "trained_episodes": 5000
+  },
+  {
+    "name": "modular_gain0.5",
+    "kind": "modular",
+    "solved_at_episode": null,
+    "post_solve_solved_rate": null,
+    "best_eval_mean_reward": 27.2,
+    "final_eval_mean_reward": 17.8,
+    "trend_last_quarter_minus_first_quarter": 2.5119999999999987,
+    "trained_episodes": 5000
+  }
+]

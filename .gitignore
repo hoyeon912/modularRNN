@@ -217,8 +217,3 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# Downloaded datasets
-/data/
-
-# Saved training results/model checkpoints/logs/figures/activity
-/results/

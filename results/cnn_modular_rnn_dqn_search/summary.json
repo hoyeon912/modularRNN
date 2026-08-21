@@ -1,0 +1,74 @@
+[
+  {
+    "name": "n7_tau005_lr1e-4",
+    "solved_at_episode": null,
+    "post_solve_solved_rate": null,
+    "post_solve_eval_std": null,
+    "best_eval_mean_reward": 35.4,
+    "final_eval_mean_reward": 30.6,
+    "trained_episodes": 5000
+  },
+  {
+    "name": "n3_tau001_lr1e-4",
+    "solved_at_episode": null,
+    "post_solve_solved_rate": null,
+    "post_solve_eval_std": null,
+    "best_eval_mean_reward": 34.4,
+    "final_eval_mean_reward": 24.6,
+    "trained_episodes": 5000
+  },
+  {
+    "name": "n5_tau005_lr1e-4",
+    "solved_at_episode": null,
+    "post_solve_solved_rate": null,
+    "post_solve_eval_std": null,
+    "best_eval_mean_reward": 32.0,
+    "final_eval_mean_reward": 21.0,
+    "trained_episodes": 5000
+  },
+  {
+    "name": "n1_tau005_lr1e-4",
+    "solved_at_episode": null,
+    "post_solve_solved_rate": null,
+    "post_solve_eval_std": null,
+    "best_eval_mean_reward": 28.6,
+    "final_eval_mean_reward": 19.6,
+    "trained_episodes": 5000
+  },
+  {
+    "name": "baseline_n3_tau005_lr1e-4",
+    "solved_at_episode": null,
+    "post_solve_solved_rate": null,
+    "post_solve_eval_std": null,
+    "best_eval_mean_reward": 25.2,
+    "final_eval_mean_reward": 12.0,
+    "trained_episodes": 5000
+  },
+  {
+    "name": "n3_tau005_lr1e-4_decay150",
+    "solved_at_episode": null,
+    "post_solve_solved_rate": null,
+    "post_solve_eval_std": null,
+    "best_eval_mean_reward": 18.6,
+    "final_eval_mean_reward": 9.6,
+    "trained_episodes": 5000
+  },
+  {
+    "name": "n3_tau005_lr5e-5",
+    "solved_at_episode": null,
+    "post_solve_solved_rate": null,
+    "post_solve_eval_std": null,
+    "best_eval_mean_reward": 14.8,
+    "final_eval_mean_reward": 9.6,
+    "trained_episodes": 5000
+  },
+  {
+    "name": "n3_tau01_lr1e-4",
+    "solved_at_episode": null,
+    "post_solve_solved_rate": null,
+    "post_solve_eval_std": null,
+    "best_eval_mean_reward": 14.8,
+    "final_eval_mean_reward": 9.8,
+    "trained_episodes": 5000
+  }
+]

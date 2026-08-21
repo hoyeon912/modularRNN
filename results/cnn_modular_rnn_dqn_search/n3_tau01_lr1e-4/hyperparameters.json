@@ -1,0 +1,29 @@
+{
+  "image_size": 64,
+  "hidden_sizes": [],
+  "rnn_hidden_size": 300,
+  "near_module_sparsity": 0.1,
+  "conv_channels": [
+    16,
+    32,
+    32
+  ],
+  "frame_stack": 4,
+  "gamma": 0.99,
+  "eps_start": 0.9,
+  "eps_end": 0.05,
+  "memory_capacity": 10000,
+  "num_episodes": 5000,
+  "eval_every": 25,
+  "eval_episodes": 5,
+  "solved_mean_reward": null,
+  "seed": 0,
+  "lr": 0.0001,
+  "n_step": 3,
+  "tau": 0.01,
+  "eps_decay": 1000,
+  "batch_size": 128,
+  "lr_decay_every": null,
+  "lr_decay_factor": 0.5,
+  "results_dir": "/NHNHOME/WORKSPACE/0526050010_AA/modularRNN/results/cnn_modular_rnn_dqn_search/n3_tau01_lr1e-4"
+}

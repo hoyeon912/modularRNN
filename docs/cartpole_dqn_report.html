@@ -1,0 +1,606 @@
+<title>CartPole DQN Trials</title>
+
+<style>
+  @import url('data:text/css;charset=UTF-8,');
+
+  :root {
+    --bg: #eef1ee;
+    --paper: #fbfcfa;
+    --ink: #1a1f1d;
+    --ink-soft: #4b534e;
+    --border: #d5dad4;
+    --border-strong: #b7bdb6;
+    --accent-dqn: #6b7280;
+    --accent-cnn: #b0791f;
+    --accent-cnn-bg: #f4e6cd;
+    --accent-rnn: #1f8a82;
+    --accent-rnn-bg: #d8ede9;
+    --good: #2f7d4f;
+    --bad: #b3452f;
+    --shadow: 0 1px 2px rgba(20, 24, 22, 0.06), 0 4px 14px rgba(20, 24, 22, 0.05);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14181a;
+      --paper: #1a2020;
+      --ink: #e9ede8;
+      --ink-soft: #a7b0a9;
+      --border: #2c3432;
+      --border-strong: #3c4644;
+      --accent-dqn: #9aa3ac;
+      --accent-cnn: #e2ab4c;
+      --accent-cnn-bg: #3a2f18;
+      --accent-rnn: #4fc4ba;
+      --accent-rnn-bg: #17332f;
+      --good: #5fbf85;
+      --bad: #e08065;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 20px rgba(0, 0, 0, 0.28);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14181a;
+    --paper: #1a2020;
+    --ink: #e9ede8;
+    --ink-soft: #a7b0a9;
+    --border: #2c3432;
+    --border-strong: #3c4644;
+    --accent-dqn: #9aa3ac;
+    --accent-cnn: #e2ab4c;
+    --accent-cnn-bg: #3a2f18;
+    --accent-rnn: #4fc4ba;
+    --accent-rnn-bg: #17332f;
+    --good: #5fbf85;
+    --bad: #e08065;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 20px rgba(0, 0, 0, 0.28);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    margin: 0;
+    padding: 3.5rem 1.5rem 6rem;
+    font-family: ui-serif, Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .mono {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", "Menlo", monospace;
+  }
+
+  .page {
+    max-width: 780px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 3.2rem;
+  }
+
+  /* ---- Header ---- */
+  header.title-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--border-strong);
+  }
+
+  .kicker {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  h1 {
+    font-size: 2.05rem;
+    line-height: 1.15;
+    margin: 0;
+    font-weight: 600;
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+
+  .subtitle {
+    color: var(--ink-soft);
+    font-size: 1.02rem;
+    max-width: 60ch;
+  }
+
+  .meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.4rem;
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", monospace;
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    margin-top: 0.3rem;
+  }
+  .meta-row b { color: var(--ink); font-weight: 600; }
+
+  /* ---- At-a-glance cards ---- */
+  .glance {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.9rem;
+  }
+  @media (max-width: 680px) {
+    .glance { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    background: var(--paper);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1.1rem 1.1rem 1.2rem;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+  .card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .swatch {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 50%;
+    flex: none;
+  }
+  .card-name {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", monospace;
+    font-size: 0.78rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+  }
+  .status-pill {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid transparent;
+  }
+  .status-solved { color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
+  .status-partial { color: var(--accent-rnn); background: var(--accent-rnn-bg); }
+  .status-early { color: var(--ink-soft); background: color-mix(in srgb, var(--ink-soft) 12%, transparent); }
+
+  .card-stat {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", monospace;
+    font-size: 1.55rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .card-stat span {
+    font-size: 0.9rem;
+    color: var(--ink-soft);
+    font-weight: 400;
+  }
+  .card-desc {
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+    line-height: 1.5;
+  }
+
+  /* ---- Sections ---- */
+  section { display: flex; flex-direction: column; gap: 1.1rem; }
+
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.7rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 2px solid var(--rule, var(--border-strong));
+  }
+  .section-head .swatch { width: 0.7rem; height: 0.7rem; }
+  h2 {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", monospace;
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+  .section-tag {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", monospace;
+    font-size: 0.72rem;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  h3 {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", monospace;
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--ink-soft);
+    margin: 0.4rem 0 -0.3rem;
+    font-weight: 600;
+  }
+
+  p { margin: 0; }
+  .lede { font-size: 1.03rem; }
+
+  ul.findings {
+    margin: 0;
+    padding-left: 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+  ul.findings li::marker { color: var(--ink-soft); }
+
+  .callout {
+    border-left: 3px solid var(--accent);
+    background: var(--paper);
+    padding: 0.85rem 1rem;
+    border-radius: 0 3px 3px 0;
+    font-size: 0.95rem;
+    color: var(--ink-soft);
+  }
+  .callout b { color: var(--ink); }
+
+  /* ---- Tables ---- */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 3px; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.86rem;
+    min-width: 480px;
+  }
+  thead th {
+    text-align: left;
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", monospace;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-soft);
+    padding: 0.55rem 0.8rem;
+    background: var(--paper);
+    border-bottom: 1px solid var(--border-strong);
+    white-space: nowrap;
+  }
+  tbody td {
+    padding: 0.5rem 0.8rem;
+    border-bottom: 1px solid var(--border);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:nth-child(even) { background: color-mix(in srgb, var(--paper) 60%, var(--bg) 40%); }
+  td.num, th.num { text-align: right; }
+  td.hl { color: var(--good); font-weight: 600; }
+  .mini { font-size: 0.78rem; color: var(--ink-soft); }
+
+  /* ---- Chart ---- */
+  .chart-block {
+    background: var(--paper);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1.1rem 1.2rem 0.9rem;
+    box-shadow: var(--shadow);
+  }
+  .chart-title {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", monospace;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-soft);
+    margin-bottom: 0.5rem;
+  }
+  svg.trace { width: 100%; height: auto; display: block; overflow: visible; }
+  .trace-line { fill: none; stroke-width: 1.6; }
+  .trace-fill { opacity: 0.12; }
+  .trace-grid { stroke: var(--border); stroke-width: 1; }
+  .trace-target { stroke: var(--border-strong); stroke-width: 1; stroke-dasharray: 3 3; }
+  .trace-label { font-family: ui-monospace, monospace; font-size: 9px; fill: var(--ink-soft); }
+  .trace-end { fill: var(--good); }
+
+  /* ---- Footer / appendix ---- */
+  .file-list {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", monospace;
+    font-size: 0.8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    color: var(--ink-soft);
+  }
+  .file-list b { color: var(--ink); font-weight: 600; }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding-top: 1.2rem;
+    font-size: 0.8rem;
+    color: var(--ink-soft);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  a { color: inherit; }
+</style>
+
+<div class="page">
+
+  <header class="title-block">
+    <div class="kicker">Reinforcement learning &middot; modularRNN project</div>
+    <h1>Teaching a Pole to Balance: Three DQN Architectures on CartPole-v1</h1>
+    <p class="subtitle">A record of every training run, dead end, and breakthrough across three Q-network
+      designs — vector-state DQN, pixel-input CNN-DQN, and a recurrent CNN-RNN-DQN — built and tuned
+      entirely from rendered frames, no physics state given to the network.</p>
+    <div class="meta-row">
+      <span><b>145</b> training runs logged</span>
+      <span><b>27</b> unit tests</span>
+      <span><b>8×</b> NVIDIA B200 GPUs</span>
+      <span><b>3</b> architectures</span>
+    </div>
+  </header>
+
+  <div class="glance">
+    <div class="card" style="--rule: var(--accent-dqn)">
+      <div class="card-top">
+        <span class="card-name"><span class="swatch" style="background:var(--accent-dqn)"></span>DQN</span>
+        <span class="status-pill status-early">Prototyped</span>
+      </div>
+      <div class="card-stat">MLP <span>on (x, ẋ, θ, θ̇)</span></div>
+      <div class="card-desc">Plain feed-forward Q-network on the 4-dim physics vector. Built first,
+        unit-tested, then set aside in favor of a pixel-only network before being benchmarked to
+        convergence.</div>
+    </div>
+    <div class="card" style="--rule: var(--accent-cnn)">
+      <div class="card-top">
+        <span class="card-name"><span class="swatch" style="background:var(--accent-cnn)"></span>CNN&#8209;DQN</span>
+        <span class="status-pill status-solved">Solved</span>
+      </div>
+      <div class="card-stat">500<span>&nbsp;/ 500 reward</span></div>
+      <div class="card-desc">Double DQN + n-step returns on rendered frames. 5 of 8 final seeds solved
+        cleanly; solved at episode&nbsp;16,725 in the fastest run.</div>
+    </div>
+    <div class="card" style="--rule: var(--accent-rnn)">
+      <div class="card-top">
+        <span class="card-name"><span class="swatch" style="background:var(--accent-rnn)"></span>CNN&#8209;RNN&#8209;DQN</span>
+        <span class="status-pill status-partial">Best found</span>
+      </div>
+      <div class="card-stat">~500<span>&nbsp;peak, seed-dependent</span></div>
+      <div class="card-desc">Stored-state DRQN with a 128-unit RNN head. Two of nine seeds sustained
+        near-max reward for 30,000 episodes; the rest oscillate or collapse.</div>
+    </div>
+  </div>
+
+  <!-- =========================================== -->
+  <section id="dqn">
+    <div class="section-head" style="--rule:var(--accent-dqn)">
+      <span class="swatch" style="background:var(--accent-dqn)"></span>
+      <h2>1&nbsp;&middot;&nbsp;DQN &mdash; the vector-state baseline</h2>
+    </div>
+    <p class="lede">The first implementation followed the PyTorch DQN tutorial closely: a small MLP
+      reading the environment's raw <span class="mono">(x, ẋ, θ, θ̇)</span> state directly, epsilon-greedy
+      exploration, a replay buffer, and a soft-updated target network.</p>
+    <p>It was built to spec, covered by unit tests, and left at that stage — the project's requirement was
+      a network that learns from <i>rendered images</i>, matching CartPole's pixel-only variant, so this
+      vector-input model was superseded by the CNN version below before it was ever pushed to convergence.
+      Its replay buffer, epsilon schedule, and target-update logic carried forward unchanged into every
+      later architecture.</p>
+  </section>
+
+  <!-- =========================================== -->
+  <section id="cnn-dqn">
+    <div class="section-head" style="--rule:var(--accent-cnn)">
+      <span class="swatch" style="background:var(--accent-cnn)"></span>
+      <h2>2&nbsp;&middot;&nbsp;CNN&#8209;DQN &mdash; solved from raw pixels</h2>
+    </div>
+    <p class="lede">A 3-layer conv stack over rendered CartPole frames (no physics state given to the
+      network at all), stacked across timesteps so the network can infer velocity from motion. This
+      architecture went through roughly 80 tuning runs before the mechanism that actually mattered was
+      found.</p>
+
+    <h3>What stalled it</h3>
+    <ul class="findings">
+      <li><b>A broken success test.</b> The first "solved" check watched reward under the noisy
+        training-time policy — but with a 5% exploration floor applied at <i>every</i> step, the odds of
+        500 consecutive correct actions are 0.95⁵⁰⁰ ≈ 8×10⁻¹². No amount of training could pass that test.
+        Fixed by scoring a separate, purely-greedy evaluation rollout instead.</li>
+      <li><b>Q-value overestimation.</b> The vanilla <span class="mono">max</span> bootstrap let the same
+        network pick <i>and</i> score the next action, visible as TD loss climbing ~25× while reward stayed
+        flat. Fixed with a Double-DQN target: the online network picks the action, the target network
+        scores it.</li>
+      <li><b>An architecture-invariant ceiling.</b> Even after both fixes, every hyperparameter and
+        architecture combination — wider frame stacks, bigger convolutions, learning-rate schedules,
+        exploration floors — converged to the same ~150&ndash;270 reward band. Roughly 70 configurations
+        landed in this range with no clear route past it.</li>
+    </ul>
+
+    <div class="callout" style="--accent:var(--accent-cnn)"><b>The breakthrough was n-step returns.</b>
+      Plain 1-step TD only propagates a reward one step back per update, so credit for a mistake several
+      steps earlier took an enormous number of updates to arrive. Bootstrapping from 5&ndash;10 steps ahead
+      instead let every one of eight parallel n-step runs blow past the old ceiling within a few thousand
+      episodes — five of them reached the environment's exact maximum score.</div>
+
+    <h3>Final configuration</h3>
+    <div class="table-wrap">
+      <table>
+        <tbody>
+          <tr><td>Input</td><td class="mono">8 stacked rendered frames, 64×64 grayscale</td></tr>
+          <tr><td>Network</td><td class="mono">conv(16→32→32) → Linear(128) → 2 Q-values</td></tr>
+          <tr><td>n-step returns</td><td class="mono">n = 7 (5&ndash;10 all solved)</td></tr>
+          <tr><td>Learning rate</td><td class="mono">1e-4, ×0.5 every 5,000 episodes</td></tr>
+          <tr><td>ε schedule</td><td class="mono">0.9 → 0.001, decay 2,000</td></tr>
+          <tr><td>Target update τ</td><td class="mono">0.001 (Polyak)</td></tr>
+          <tr><td>Batch / buffer</td><td class="mono">128 / 10,000 transitions</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Solved runs</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Seed</th><th class="num">Solved at</th><th class="num">Best eval</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="mono">n_step=7, seed 0</td><td class="num mono hl">16,725</td><td class="num mono hl">500.0</td><td class="mini">Fastest of the five</td></tr>
+          <tr><td class="mono">n_step=5, seed 1</td><td class="num mono">19,400</td><td class="num mono">500.0</td><td class="mini">&mdash;</td></tr>
+          <tr><td class="mono">n_step=10, seed 0</td><td class="num mono">20,275</td><td class="num mono">499.8</td><td class="mini">&mdash;</td></tr>
+          <tr><td class="mono">n_step=5, seed 3</td><td class="num mono">24,875</td><td class="num mono">500.0</td><td class="mini">&mdash;</td></tr>
+          <tr><td class="mono">n_step=5, seed 2</td><td class="num mono">26,000</td><td class="num mono">498.4</td><td class="mini">&mdash;</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="chart-block">
+      <div class="chart-title">Greedy-eval reward &middot; n_step=7, seed 0 &middot; 0&ndash;16,725 episodes</div>
+      <svg class="trace" viewBox="0 0 640 160" preserveAspectRatio="none">
+        <line class="trace-grid" x1="0" y1="10" x2="640" y2="10"/>
+        <line class="trace-grid" x1="0" y1="80" x2="640" y2="80"/>
+        <line class="trace-target" x1="0" y1="10" x2="640" y2="10"/>
+        <text class="trace-label" x="4" y="21">500 (max)</text>
+        <text class="trace-label" x="4" y="146">0</text>
+        <polyline class="trace-fill" fill="var(--accent-cnn)" points="0,150 0,138.4 15.6,79.2 31.2,90.3 46.8,102.9 62.4,49.2 78.0,60.0 93.6,61.4 109.2,84.4 124.8,29.2 140.4,68.1 156.0,37.9 171.6,68.5 187.2,42.6 202.8,49.9 218.4,58.4 234.0,32.6 249.6,111.6 265.2,72.0 280.8,116.5 296.4,74.5 312.0,61.4 327.6,86.1 343.2,63.5 358.8,90.7 374.4,66.9 390.0,81.6 405.6,63.5 421.2,17.7 436.8,72.4 452.4,38.0 468.0,25.2 483.6,39.5 499.2,52.0 514.8,44.8 530.4,60.9 546.0,50.8 561.6,63.7 577.2,17.6 592.8,60.6 608.4,68.5 624.0,63.9 640,79.6 640,150"/>
+        <polyline class="trace-line" stroke="var(--accent-cnn)" points="0,138.4 15.6,79.2 31.2,90.3 46.8,102.9 62.4,49.2 78.0,60.0 93.6,61.4 109.2,84.4 124.8,29.2 140.4,68.1 156.0,37.9 171.6,68.5 187.2,42.6 202.8,49.9 218.4,58.4 234.0,32.6 249.6,111.6 265.2,72.0 280.8,116.5 296.4,74.5 312.0,61.4 327.6,86.1 343.2,63.5 358.8,90.7 374.4,66.9 390.0,81.6 405.6,63.5 421.2,17.7 436.8,72.4 452.4,38.0 468.0,25.2 483.6,39.5 499.2,52.0 514.8,44.8 530.4,60.9 546.0,50.8 561.6,63.7 577.2,17.6 592.8,60.6 608.4,68.5 624.0,63.9 640,79.6"/>
+        <circle class="trace-end" cx="640" cy="79.6" r="3.5"/>
+      </svg>
+    </div>
+    <p class="mini">Reward climbs in bursts rather than smoothly &mdash; each rise is a plateau being broken,
+      consistent with the episodic step-changes observed across the whole search.</p>
+  </section>
+
+  <!-- =========================================== -->
+  <section id="cnn-rnn-dqn">
+    <div class="section-head" style="--rule:var(--accent-rnn)">
+      <span class="swatch" style="background:var(--accent-rnn)"></span>
+      <h2>3&nbsp;&middot;&nbsp;CNN&#8209;RNN&#8209;DQN &mdash; trading the last Linear layer for memory</h2>
+    </div>
+    <p class="lede">Same conv front-end and Double-DQN/n-step machinery as CNN-DQN, but the final 128-unit
+      hidden layer is an <span class="mono">RNNCell</span> whose hidden state persists across an entire
+      episode instead of resetting every frame — a "stored-state" DRQN, carrying its hidden state through
+      the replay buffer alongside each transition.</p>
+
+    <h3>What the search found</h3>
+    <ul class="findings">
+      <li><b>It learns fast, but doesn't stay put.</b> Every configuration reached strong reward (400+)
+        within a few thousand episodes, then <i>every one of them eventually showed a sharp collapse</i> at
+        some point — loss climbing back up right as the eval score crashed, the same moving-target signature
+        seen in CNN-DQN before its Double-DQN fix, but not eliminated by that fix here.</li>
+      <li><b>Best-checkpoint saving became essential.</b> Because live weights aren't guaranteed to sit at
+        their best-ever score, <span class="mono">train_dqn_recurrent</span> now snapshots the policy to
+        disk every time a greedy eval beats the previous best &mdash; so the reported result is always
+        deployable, independent of what training does afterward.</li>
+      <li><b>Target-tracking speed reverses.</b> CNN-DQN preferred a <i>slow</i> target network
+        (τ&nbsp;=&nbsp;0.001); the recurrent head does much better with a <i>faster</i> one
+        (τ&nbsp;≈&nbsp;0.01) &mdash; a slow-moving target apparently can't keep up with how quickly the
+        hidden-state-conditioned Q-estimates shift.</li>
+      <li><b>Stability is real but seed-dependent.</b> At the best setting, 2 of 9 independent seeds
+        sustained near-maximum reward for the full 30,000-episode budget with no lasting collapse; the rest
+        oscillate through good and weak stretches. No hyperparameter choice removed DQN's inherent seed
+        sensitivity &mdash; this setting just gave it noticeably better odds than any other tested.</li>
+    </ul>
+
+    <h3>Best configuration found</h3>
+    <div class="table-wrap">
+      <table>
+        <tbody>
+          <tr><td>Head</td><td class="mono">conv(16→32→32) → RNNCell(128) → 2 Q-values</td></tr>
+          <tr><td>Learning rate</td><td class="mono">5e-5, ×0.5 every 5,000 episodes</td></tr>
+          <tr><td>Target update τ</td><td class="mono">0.01</td></tr>
+          <tr><td>n-step returns</td><td class="mono">n = 7</td></tr>
+          <tr><td>Frame stack</td><td class="mono">8</td></tr>
+          <tr><td>ε schedule</td><td class="mono">0.9 → 0.001, decay 2,000</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Seed outcomes at the best setting (n = 9)</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Outcome</th><th class="num">Seeds</th><th>Example</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Sustained near-max, 30k episodes</td><td class="num mono hl">2 / 9</td><td class="mini">seed 1, seed 6 &mdash; both hit 500.0</td></tr>
+          <tr><td>Good but oscillating</td><td class="num mono">3 / 9</td><td class="mini">strong stretches, no full collapse</td></tr>
+          <tr><td>Collapsed / never took off</td><td class="num mono">4 / 9</td><td class="mini">stuck at low reward for the full run</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="chart-block">
+      <div class="chart-title">Greedy-eval reward &middot; τ=0.01, seed 1 vs seed 6 &middot; full 30,000-episode runs</div>
+      <svg class="trace" viewBox="0 0 640 170" preserveAspectRatio="none">
+        <line class="trace-target" x1="0" y1="10" x2="640" y2="10"/>
+        <text class="trace-label" x="4" y="21">500 (max)</text>
+        <text class="trace-label" x="4" y="156">0</text>
+        <polyline class="trace-line" stroke="var(--accent-rnn)" points="0,140.8 16.4,63.0 32.8,20.9 49.2,42.6 65.6,17.5 82.0,17.0 98.4,10.4 114.8,3.9 131.2,3.7 147.6,52.2 164.0,15.4 180.4,42.8 196.8,30.7 213.2,14.1 229.6,50.3 246.0,79.9 262.4,17.9 278.8,3.9 295.2,68.5 311.6,116.5 328.0,20.6 344.4,3.9 360.8,58.2 377.2,42.7 393.6,113.6 410.0,80.5 426.4,26.1 442.8,44.5 459.2,113.6 475.6,80.9 492.0,111.2 508.4,52.4 524.8,42.6 541.2,124.6 557.6,52.5 574.0,116.9 590.4,110.0 606.8,50.4 623.2,68.4 640,53.6"/>
+        <circle class="trace-end" cx="640" cy="53.6" r="3.5" fill="var(--accent-rnn)"/>
+        <polyline class="trace-line" stroke="var(--accent-dqn)" stroke-dasharray="2 3" points="0,141.6 16.4,7.2 32.8,68.9 49.2,45.5 65.6,90.3 82.0,42.6 98.4,49.8 106.6,10.4 114.8,17.6 131.2,20.5 147.6,79.0 164.0,102.9 180.4,111.7 196.8,86.2 213.2,110.6 229.6,54.4 246.0,120.3 262.4,88.9 279.0,10.4 295.2,102.5 311.6,80.4 328.0,90.7 344.4,109.5 360.8,44.7 377.2,20.3 393.6,102.4 410.0,58.9 426.4,42.8 442.8,10.4 459.2,86.7 475.6,109.6 492.0,52.4 508.4,111.4 524.8,132.0 541.2,142.1 557.6,90.4 574.0,131.4 590.4,64.4 606.8,105.8 623.2,55.2 640,49.9"/>
+        <circle class="trace-end" cx="640" cy="49.9" r="3.5" fill="var(--accent-dqn)"/>
+      </svg>
+      <div class="mini" style="margin-top:0.4rem; display:flex; gap:1.2rem;">
+        <span><span style="color:var(--accent-rnn)">&#9679;</span> seed 6 &mdash; sustained, low variance</span>
+        <span><span style="color:var(--accent-dqn)">&#9675;</span> seed 1 &mdash; recovers after a mid-run dip</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================== -->
+  <section id="comparison">
+    <div class="section-head" style="--rule:var(--border-strong)">
+      <h2>Across all three</h2>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Architecture</th><th>Input</th><th>Status</th><th class="num">Fastest solve</th><th>Stability</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="swatch" style="background:var(--accent-dqn); display:inline-block; margin-right:0.4rem;"></span>DQN</td>
+            <td class="mono">4-dim physics vector</td>
+            <td>Not benchmarked to convergence</td>
+            <td class="num mono">&mdash;</td>
+            <td class="mini">&mdash;</td>
+          </tr>
+          <tr>
+            <td><span class="swatch" style="background:var(--accent-cnn); display:inline-block; margin-right:0.4rem;"></span>CNN-DQN</td>
+            <td class="mono">64×64 pixels ×8</td>
+            <td><span style="color:var(--good)">Solved</span>, 5/8 final seeds</td>
+            <td class="num mono hl">16,725 ep</td>
+            <td class="mini">Stays solved once past ~20k episodes</td>
+          </tr>
+          <tr>
+            <td><span class="swatch" style="background:var(--accent-rnn); display:inline-block; margin-right:0.4rem;"></span>CNN-RNN-DQN</td>
+            <td class="mono">64×64 pixels ×8</td>
+            <td>Best-of-search, 2/9 seeds sustained</td>
+            <td class="num mono">~2,700 ep to 490</td>
+            <td class="mini">Reaches reward faster; less reliably durable</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>CNN-RNN-DQN's recurrent memory gets it to a strong policy noticeably faster than the plain CNN-DQN
+      did in its own search &mdash; but the extra recurrent-state dynamics also introduce a real, unresolved
+      source of instability that the feed-forward network doesn't have. For a deployment where reliability
+      matters more than training speed, CNN-DQN's fully-solved, 5-of-8-seed result is the safer choice
+      today; the recurrent head is the more promising direction if that instability gets run down further.</p>
+  </section>
+
+  <!-- =========================================== -->
+  <footer>
+    <span>modularRNN &middot; scripts/test_dqn_cartpole.py, scripts/test_cnn_rnn_dqn_cartpole.py</span>
+    <span>results/dqn_cartpole_fastest_search, results/cnn_rnn_dqn_search</span>
+  </footer>
+
+</div>

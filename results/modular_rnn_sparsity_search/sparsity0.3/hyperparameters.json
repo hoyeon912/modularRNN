@@ -1,0 +1,9 @@
+{
+  "hidden_size": 300,
+  "num_updates": 300,
+  "episodes_per_update": 8,
+  "lr": 0.001,
+  "seed": 0,
+  "near_module_sparsity": 0.3,
+  "results_dir": "/NHNHOME/WORKSPACE/0526050010_AA/modularRNN/results/modular_rnn_sparsity_search/sparsity0.3"
+}
