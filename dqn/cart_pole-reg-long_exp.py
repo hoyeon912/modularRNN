@@ -36,7 +36,6 @@ device = torch.device(
 
 env = gym.make("CartPole-v1", render_mode="rgb_array")
 env = AddRenderObservation(env, render_only=True)
-env = ResizeObservation(env, (84, 84))
 env = GrayscaleObservation(env, keep_dim=False)
 env = FrameStackObservation(env, stack_size=4)
 env = TransformObservation(
@@ -60,7 +59,7 @@ target_net.load_state_dict(policy_net.state_dict())
 optimizer = optim.AdamW(policy_net.parameters(), lr=LR, amsgrad=True)
 memory = ReplayBuffer(10000)
 
-writer = SummaryWriter(log_dir="runs/cnndqn-reg-long_exp")
+writer = SummaryWriter(log_dir="runs/cnndqn-reg-long_exp-no_resize")
 
 
 def optimize_model():
