@@ -57,7 +57,7 @@ target_net = CNNDQN(action_dim).to(device)
 
 target_net.load_state_dict(policy_net.state_dict())
 optimizer = optim.AdamW(policy_net.parameters(), lr=LR, amsgrad=True)
-memory = ReplayBuffer(10000)
+memory = ReplayBuffer(100_000)
 
 writer = SummaryWriter(log_dir="runs/cnndqn-reg-long_exp-no_resize")
 
