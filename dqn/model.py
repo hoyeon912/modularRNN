@@ -47,7 +47,7 @@ class CNNDQN(nn.Module):
             nn.Flatten(),
         )
         self.q_head = nn.Sequential(
-            nn.LazyLinear(512),
+            nn.Linear(64 * 46 * 71, 512),
             nn.ReLU(),
             nn.Linear(512, n_actions),
         )
