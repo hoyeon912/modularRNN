@@ -16,14 +16,16 @@ from model import CNNDQN, DQN, ReplayBuffer, Transition
 from torch import nn, optim
 from torch.utils.tensorboard import SummaryWriter
 
-BATCH_SIZE = 128
+BATCH_SIZE = 32
+UPDATE_FREQ = 4
 HIDDEN_SIZE = 128
 GAMMA = 0.99
 EPS_START = 0.9
 EPS_END = 0.01
 EPS_DECAY = 25000
 TAU = 0.005
-LR = 3e-4
+LR = 0.00025
+LEARNING_STARTS = 10_000
 
 device = torch.device(
     "cuda"
@@ -57,10 +59,13 @@ policy_net = CNNDQN(action_dim).to(device)
 target_net = CNNDQN(action_dim).to(device)
 
 target_net.load_state_dict(policy_net.state_dict())
-optimizer = optim.AdamW(policy_net.parameters(), lr=LR, amsgrad=True)
-memory = ReplayBuffer(10000)
+optimizer = optim.Adam(
+    policy_net.parameters(), 
+    lr=LR,
+    )
+memory = ReplayBuffer(100000)
 
-writer = SummaryWriter(log_dir="runs/cnndqn")
+writer = SummaryWriter(log_dir="runs/cnndqn-hardcopy")
 
 
 def optimize_model():
@@ -102,11 +107,12 @@ def optimize_model():
 obs, info = env.reset()
 total_reward = 0
 n_episodes = 1
-for step in range(1000000):
+for step in range(1_000_000):
     state = torch.tensor(obs, dtype=torch.float32, device=device).unsqueeze(0)
 
-    eps_threshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1.0 * step / EPS_DECAY)
-    if torch.rand(1).item() < eps_threshold:
+    elapsed = max(0, step - LEARNING_STARTS)
+    remaining = max(0.0, 1.0-elapsed / EPS_DECAY)
+    if torch.rand(1).item() < EPS_END + (EPS_START - EPS_END) * remaining:
         action = torch.tensor(
             [[env.action_space.sample()]], device=device, dtype=torch.long
         )
@@ -126,9 +132,10 @@ for step in range(1000000):
 
     memory.push(state, action, next_state, reward)
 
-    loss = optimize_model()
-    if loss:
-        writer.add_scalar("train/loss", loss, step)
+    if step > LEARNING_STARTS and step % UPDATE_FREQ == 0:
+        loss = optimize_model()
+        if loss:
+            writer.add_scalar("train/loss", loss, step)
 
     if done:
         obs, info = env.reset()
@@ -137,13 +144,10 @@ for step in range(1000000):
         total_reward = 0
         n_episodes += 1
 
-    target_net_state_dict = target_net.state_dict()
-    policy_net_state_dict = policy_net.state_dict()
-    for key in policy_net_state_dict:
-        target_net_state_dict[key] = policy_net_state_dict[
-            key
-        ] * TAU + target_net_state_dict[key] * (1 - TAU)
-    target_net.load_state_dict(target_net_state_dict)
+    if step % 10000 == 0:
+        target_net_state_dict = target_net.state_dict()
+        policy_net_state_dict = policy_net.state_dict()
+        target_net.load_state_dict(policy_net_state_dict)
 
 env.close()
 writer.close()
