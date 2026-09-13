@@ -2,9 +2,16 @@ import math
 from typing import cast
 
 import gymnasium as gym
+import numpy as np
 import torch
 from gymnasium.spaces import Box, Discrete
-from gymnasium.wrappers import AddRenderObservation, GrayscaleObservation, ResizeObservation, FrameStackObservation
+from gymnasium.wrappers import (
+    AddRenderObservation,
+    FrameStackObservation,
+    GrayscaleObservation,
+    ResizeObservation,
+    TransformObservation,
+)
 from model import CNNDQN, DQN, ReplayBuffer, Transition
 from torch import nn, optim
 from torch.utils.tensorboard import SummaryWriter
@@ -14,14 +21,16 @@ HIDDEN_SIZE = 128
 GAMMA = 0.99
 EPS_START = 0.9
 EPS_END = 0.01
-EPS_DECAY = 2500
+EPS_DECAY = 25000
 TAU = 0.005
 LR = 3e-4
 
 device = torch.device(
     "cuda"
     if torch.cuda.is_available()
-    else "mps" if torch.backends.mps.is_available() else "cpu"
+    else "mps"
+    if torch.backends.mps.is_available()
+    else "cpu"
 )
 # device = "cpu"
 
@@ -30,6 +39,13 @@ env = AddRenderObservation(env, render_only=True)
 env = ResizeObservation(env, (84, 84))
 env = GrayscaleObservation(env, keep_dim=False)
 env = FrameStackObservation(env, stack_size=4)
+env = TransformObservation(
+    env,
+    func=lambda obs: obs.astype(np.float32) / 255.0,
+    observation_space=Box(
+        low=0.0, high=1.0, shape=env.observation_space.shape, dtype=np.float32
+    ),
+)
 
 # obs_dim = cast(Box, env.observation_space).shape[0]
 action_dim = cast(Discrete, env.action_space).n
@@ -58,9 +74,7 @@ def optimize_model():
         device=device,
         dtype=torch.bool,
     )
-    non_final_next_states = torch.cat(
-        [s for s in batch.next_state if s is not None]
-    )
+    non_final_next_states = torch.cat([s for s in batch.next_state if s is not None])
     state_batch = torch.cat(batch.state)
     action_batch = torch.cat(batch.action)
     reward_batch = torch.cat(batch.reward)
@@ -75,9 +89,7 @@ def optimize_model():
     expected_state_action_values = (next_state_values * GAMMA) + reward_batch
 
     criterion = nn.SmoothL1Loss()
-    loss = criterion(
-        state_action_values, expected_state_action_values.unsqueeze(1)
-    )
+    loss = criterion(state_action_values, expected_state_action_values.unsqueeze(1))
 
     optimizer.zero_grad()
     loss.backward()
@@ -93,9 +105,7 @@ n_episodes = 1
 for step in range(1000000):
     state = torch.tensor(obs, dtype=torch.float32, device=device).unsqueeze(0)
 
-    eps_threshold = EPS_END + (EPS_START - EPS_END) * math.exp(
-        -1.0 * step / EPS_DECAY
-    )
+    eps_threshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1.0 * step / EPS_DECAY)
     if torch.rand(1).item() < eps_threshold:
         action = torch.tensor(
             [[env.action_space.sample()]], device=device, dtype=torch.long
@@ -112,9 +122,7 @@ for step in range(1000000):
     if terminated:
         next_state = None
     else:
-        next_state = torch.tensor(
-            obs, dtype=torch.float32, device=device
-        ).unsqueeze(0)
+        next_state = torch.tensor(obs, dtype=torch.float32, device=device).unsqueeze(0)
 
     memory.push(state, action, next_state, reward)
 
