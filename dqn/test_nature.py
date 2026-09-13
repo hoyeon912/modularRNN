@@ -171,8 +171,8 @@ def test_training_loop_and_checkpoint(tmp_path, monkeypatch):
             writer=writer,
         )
     events = EventAccumulator(str(log_dir)).Reload()
-    losses = events.Scalars("loss/td_loss")
-    rewards = events.Scalars("reward/episode_return")
+    losses = events.Scalars("train/loss")
+    rewards = events.Scalars("train/reward")
     assert [event.step for event in losses] == [3, 4, 5, 6]
     assert losses[-1].value == pytest.approx(result["loss"])
     assert all(np.isfinite(event.value) for event in losses)

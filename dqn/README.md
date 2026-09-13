@@ -118,8 +118,13 @@ episode 경계 및 minibatch 메모리가 추가됩니다. 작은 메모리 환�
 
 | Scalar 이름 | 내용 | 가로축 |
 | --- | --- | --- |
-| `loss/td_loss` | 해당 minibatch의 평균 Huber loss, 매 학습 업데이트 기록 | Agent step |
-| `reward/episode_return` | clipping 전 보상의 에피소드 합, 종료·시간 제한 시 기록 | Episode 번호 |
+| `train/loss` | 해당 minibatch의 평균 Huber loss, 매 학습 업데이트 기록 | Agent step |
+| `train/reward` | clipping 전 보상의 에피소드 합, 종료·시간 제한 시 기록 | Episode 번호 |
+
+태그와 가로축 종류는 `dqn/cart_pole.py`의 TensorBoard 형식에 맞췄습니다.
+기존 `runs/cnndqn-hardcopy`와 새 실행을 같은 그래프에서 비교하려면
+`.venv/bin/tensorboard --logdir runs --port 6006`으로 실행하세요.
+태그 변경 전에 생성한 이벤트 파일은 기존 태그를 유지합니다.
 
 Loss는 warmup이 끝나고 실제 업데이트가 시작된 뒤 나타납니다. Loss 그래프는
 평균값을 표시하지만, 원본에 맞춘 역전파의 minibatch 합 연산은 유지합니다.

@@ -134,16 +134,14 @@ def train(
             last_loss = agent.update(memory.sample(config.batch_size))
             updates += 1
             if writer is not None:
-                writer.add_scalar("loss/td_loss", last_loss, step)
+                writer.add_scalar("train/loss", last_loss, step)
         if step % config.target_update_interval == 0:
             agent.sync_target()
 
         if terminated or truncated:
             episodes += 1
             if writer is not None:
-                writer.add_scalar(
-                    "reward/episode_return", episode_return, episodes
-                )
+                writer.add_scalar("train/reward", episode_return, episodes)
             print(
                 f"step={step} episode={episodes} return={episode_return:g}",
                 flush=True,
