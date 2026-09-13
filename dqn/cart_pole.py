@@ -22,7 +22,7 @@ HIDDEN_SIZE = 128
 GAMMA = 0.99
 EPS_START = 0.9
 EPS_END = 0.01
-EPS_DECAY = 25000
+EPS_DECAY = 25_000
 TAU = 0.005
 LR = 0.00025
 LEARNING_STARTS = 10_000
@@ -63,7 +63,7 @@ optimizer = optim.Adam(
     policy_net.parameters(), 
     lr=LR,
     )
-memory = ReplayBuffer(100000)
+memory = ReplayBuffer(100_000)
 
 writer = SummaryWriter(log_dir="runs/cnndqn-hardcopy")
 
@@ -144,7 +144,7 @@ for step in range(1_000_000):
         total_reward = 0
         n_episodes += 1
 
-    if step % 10000 == 0:
+    if step % 10_000 == 0:
         target_net_state_dict = target_net.state_dict()
         policy_net_state_dict = policy_net.state_dict()
         target_net.load_state_dict(policy_net_state_dict)
