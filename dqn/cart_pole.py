@@ -38,7 +38,6 @@ device = torch.device(
 
 env = gym.make("CartPole-v1", render_mode="rgb_array")
 env = AddRenderObservation(env, render_only=True)
-env = ResizeObservation(env, (84, 84))
 env = GrayscaleObservation(env, keep_dim=False)
 env = FrameStackObservation(env, stack_size=4)
 env = TransformObservation(
